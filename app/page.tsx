@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import {
   Search,
   Heart,
@@ -10,6 +11,7 @@ import {
   Trash2,
   CheckCircle2,
   Bookmark,
+  Settings,
 } from "lucide-react";
 
 // Types untuk data film
@@ -126,18 +128,29 @@ export default function Home() {
 
           {/* Actions */}
           <div className="flex items-center gap-3">
-            <button
-              onClick={() => setActiveFilter("FAVORITE")}
+            <Link
+              href="/favorites"
               className="flex items-center gap-2 px-3.5 py-2 text-sm font-medium rounded-xl border border-neutral-800 hover:bg-neutral-800 transition-colors text-neutral-300"
             >
               <Heart className="w-4 h-4 text-rose-500 fill-rose-500/20" />
               <span>Favorites</span>
-            </button>
+            </Link>
 
-            <button className="flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-xl bg-rose-600 hover:bg-rose-500 text-white shadow-lg shadow-rose-600/20 transition-all active:scale-95">
+            <Link
+              href="/upload"
+              className="flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-xl bg-rose-600 hover:bg-rose-500 text-white shadow-lg shadow-rose-600/20 transition-all active:scale-95"
+            >
               <Upload className="w-4 h-4" />
               <span>Upload</span>
-            </button>
+            </Link>
+
+            <Link
+              href="/settings"
+              title="Pengaturan"
+              className="p-2 rounded-xl border border-neutral-800 hover:bg-neutral-800 text-neutral-400 hover:text-white transition-colors"
+            >
+              <Settings className="w-4 h-4" />
+            </Link>
           </div>
         </div>
       </header>
@@ -180,8 +193,9 @@ export default function Home() {
         ) : (
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-5">
             {filteredMovies.map((movie) => (
-              <div
+              <Link
                 key={movie.id}
+                href={`/movie/${movie.id}`}
                 className="group relative bg-neutral-900 border border-neutral-800/80 rounded-2xl overflow-hidden hover:border-neutral-700 transition-all duration-300 hover:shadow-xl hover:shadow-black/40 flex flex-col"
               >
                 {/* Poster Box */}
@@ -236,7 +250,7 @@ export default function Home() {
                     </p>
                   </div>
                 </div>
-              </div>
+              </Link>
             ))}
           </div>
         )}
