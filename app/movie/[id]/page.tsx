@@ -1,5 +1,7 @@
+import { Button } from "@/components/ui/button";
 import Image from "next/image";
 import Link from "next/link";
+import { Navbar } from "@/components/Navbar";
 
 // 1. Update tipe props agar params berbentuk Promise
 interface MovieDetailProps {
@@ -144,6 +146,13 @@ export default async function MovieDetailPage({ params }: MovieDetailProps) {
 
   return (
     <main className="min-h-screen bg-slate-950 text-slate-100 pb-16">
+      <Navbar
+        rightActions={
+          <Button variant="destructive" size="sm" className="rounded-xl">
+            Hapus Film
+          </Button>
+        }
+      />
       {/* MAIN CONTENT */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-8 space-y-10">
         {/* 2. VIDEO STREAMING SECTION */}

@@ -49,38 +49,54 @@
 }
 
 :root {
-  --background: oklch(0.12 0.015 260);
-  --foreground: oklch(0.98 0 0);
-  --card: oklch(0.16 0.015 260);
-  --card-foreground: oklch(0.98 0 0);
-  --popover: oklch(0.16 0.015 260);
-  --popover-foreground: oklch(0.98 0 0);
-  --primary: oklch(0.58 0.23 22);
+  /* Latar belakang putih pudar lembut, bukan putih pekat solid */
+  --background: oklch(0.98 0.005 260);
+  /* Teks abu-abu arang gelap untuk kenyamanan membaca optimal */
+  --foreground: oklch(0.21 0.015 260);
+
+  /* Komponen kartu & popover dibuat sedikit kontras dengan background */
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.21 0.015 260);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.21 0.015 260);
+
+  /* Mempertahankan rona warna primary (merah/rose bawaan Anda) disesuaikan untuk mode terang */
+  --primary: oklch(0.52 0.21 22);
   --primary-foreground: oklch(0.98 0 0);
-  --secondary: oklch(0.22 0.015 260);
-  --secondary-foreground: oklch(0.98 0 0);
-  --muted: oklch(0.22 0.015 260);
-  --muted-foreground: oklch(0.65 0.01 260);
-  --accent: oklch(0.25 0.02 260);
-  --accent-foreground: oklch(0.98 0 0);
+
+  --secondary: oklch(0.92 0.01 260);
+  --secondary-foreground: oklch(0.21 0.015 260);
+
+  /* Warna teks redup/keterangan pembantu */
+  --muted: oklch(0.94 0.01 260);
+  --muted-foreground: oklch(0.48 0.015 260);
+
+  --accent: oklch(0.92 0.01 260);
+  --accent-foreground: oklch(0.21 0.015 260);
+
   --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.24 0.015 260);
-  --input: oklch(0.24 0.015 260);
-  --ring: oklch(0.58 0.23 22);
+
+  /* Border & Input yang terlihat tegas namun tipis */
+  --border: oklch(0.88 0.015 260);
+  --input: oklch(0.88 0.015 260);
+  --ring: oklch(0.52 0.21 22);
+
   --chart-1: oklch(0.646 0.222 41.116);
   --chart-2: oklch(0.6 0.118 184.704);
   --chart-3: oklch(0.398 0.07 227.392);
   --chart-4: oklch(0.828 0.189 84.429);
   --chart-5: oklch(0.769 0.188 70.08);
   --radius: 0.75rem;
-  --sidebar: oklch(0.14 0.015 260);
-  --sidebar-foreground: oklch(0.98 0 0);
-  --sidebar-primary: oklch(0.58 0.23 22);
+
+  /* Pengaturan warna Sidebar mode terang */
+  --sidebar: oklch(0.96 0.005 260);
+  --sidebar-foreground: oklch(0.21 0.015 260);
+  --sidebar-primary: oklch(0.52 0.21 22);
   --sidebar-primary-foreground: oklch(0.98 0 0);
-  --sidebar-accent: oklch(0.22 0.015 260);
-  --sidebar-accent-foreground: oklch(0.98 0 0);
-  --sidebar-border: oklch(0.24 0.015 260);
-  --sidebar-ring: oklch(0.58 0.23 22);
+  --sidebar-accent: oklch(0.9 0.01 260);
+  --sidebar-accent-foreground: oklch(0.21 0.015 260);
+  --sidebar-border: oklch(0.88 0.015 260);
+  --sidebar-ring: oklch(0.52 0.21 22);
 }
 
 .dark {
