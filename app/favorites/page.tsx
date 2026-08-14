@@ -12,7 +12,18 @@ import {
   Bookmark,
   Trash2,
   SlidersHorizontal,
+  Upload,
+  Settings,
 } from "lucide-react";
+import { Navbar } from "@/components/Navbar";
+import { Badge } from "@/components/ui/badge";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 interface Movie {
   id: string;
@@ -89,92 +100,69 @@ export default function FavoritesPage() {
     });
 
   return (
-    <div className="min-h-screen bg-background text-foreground font-sans selection:bg-rose-600 selection:text-white">
-      {/* Navbar Header */}
-      <header className="sticky top-0 z-50 backdrop-blur-md bg-neutral-900/80 border-b border-neutral-800 px-4 sm:px-8 py-3.5">
-        <div className="max-w-7xl mx-auto flex items-center justify-between">
-          <Link
-            href="/"
-            className="flex items-center gap-2 text-sm text-neutral-400 hover:text-white transition-colors"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            <span>Kembali ke Beranda</span>
-          </Link>
-          <div className="flex items-center gap-2">
-            <div className="bg-rose-600 p-1.5 rounded-lg text-white shadow-lg shadow-rose-600/20">
-              <Film className="w-4 h-4" />
+    <div className="min-h-screen bg-neutral-50 text-neutral-900 font-sans selection:bg-rose-500 selection:text-white">
+      <Navbar
+        searchQuery={searchQuery}
+        onSearchChange={setSearchQuery}
+        leftMode="back"
+        rightActions={
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 w-full sm:w-auto">
+            {/* Badge Total Favorit */}
+            <div className="flex items-center justify-center gap-2 px-3.5 py-1.5 rounded-xl bg-white border border-neutral-200/80 text-xs font-medium text-neutral-700 shadow-sm">
+              <span>Total Favorit:</span>
+              <Badge className="bg-rose-100 text-rose-600 hover:bg-rose-200 border-none font-bold px-2 py-0.5 rounded-md">
+                {favoriteMovies.length}
+              </Badge>
             </div>
-            <span className="font-bold text-lg text-white">Filmfy</span>
+
+            {/* Dropdown Sorting */}
+            <Select
+              value={sortBy}
+              onValueChange={(val) => setSortBy(val as SortOption)}
+            >
+              <SelectTrigger className="w-full sm:w-48 h-9 border-neutral-200/80 rounded-xl text-xs font-medium text-white shadow-sm hover:bg-neutral-50 focus:ring-rose-500/30">
+                <div className="flex items-center gap-2">
+                  <SlidersHorizontal className="w-3.5 h-3.5" />
+                  <SelectValue placeholder="Urutkan" />
+                </div>
+              </SelectTrigger>
+              <SelectContent className="bg-white border-neutral-200 text-neutral-800 shadow-lg">
+                <SelectItem
+                  value="LATEST"
+                  label="Terbaru"
+                  className="text-xs focus:bg-neutral-100 focus:text-neutral-900 cursor-pointer"
+                >
+                  Terbaru
+                </SelectItem>
+                <SelectItem
+                  value="RATING_DESC"
+                  label="Rating Tertinggi"
+                  className="text-xs focus:bg-neutral-100 focus:text-neutral-900 cursor-pointer"
+                >
+                  Rating Tertinggi
+                </SelectItem>
+                <SelectItem
+                  value="TITLE_ASC"
+                  label="Judul (A - Z)"
+                  className="text-xs focus:bg-neutral-100 focus:text-neutral-900 cursor-pointer"
+                >
+                  Judul (A - Z)
+                </SelectItem>
+              </SelectContent>
+            </Select>
           </div>
-        </div>
-      </header>
+        }
+      />
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-8 py-8 space-y-6">
-        {/* Title Section */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-neutral-800 pb-6">
-          <div>
-            <div className="flex items-center gap-2.5">
-              <div className="p-2 bg-rose-500/10 border border-rose-500/20 rounded-xl text-rose-500">
-                <Heart className="w-6 h-6 fill-rose-500" />
-              </div>
-              <h1 className="text-2xl font-bold tracking-tight text-white">
-                Film Favorit
-              </h1>
-            </div>
-            <p className="text-neutral-400 text-sm mt-1.5">
-              Koleksi film-film terbaik yang paling kamu sukai.
-            </p>
-          </div>
-
-          {/* Stats Badge */}
-          <div className="self-start sm:self-auto px-3.5 py-1.5 rounded-xl bg-neutral-900 border border-neutral-800 text-xs font-medium text-neutral-300">
-            Total Favorit:{" "}
-            <span className="font-bold text-rose-400">
-              {favoriteMovies.length}
-            </span>
-          </div>
-        </div>
-
-        {/* Search & Sort Controls */}
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-          {/* Search Box */}
-          <div className="relative w-full sm:w-80">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400" />
-            <input
-              type="text"
-              placeholder="Cari favorit (judul / kode)..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-9 pr-4 py-2 text-sm bg-neutral-900 border border-neutral-800 rounded-xl focus:outline-none focus:ring-2 focus:ring-rose-500/50 focus:border-rose-500 text-neutral-200 placeholder-neutral-500 transition-all"
-            />
-          </div>
-
-          {/* Sort Dropdown */}
-          <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
-            <SlidersHorizontal className="w-4 h-4 text-neutral-400" />
-            <span className="text-xs font-medium text-neutral-400">
-              Urutkan:
-            </span>
-            <select
-              value={sortBy}
-              onChange={(e) => setSortBy(e.target.value as SortOption)}
-              className="bg-neutral-900 border border-neutral-800 rounded-xl px-3 py-2 text-xs font-medium text-neutral-200 focus:outline-none focus:ring-2 focus:ring-rose-500/50"
-            >
-              <option value="LATEST">Terbaru Ditambahkan</option>
-              <option value="RATING_DESC">Rating Tertinggi</option>
-              <option value="TITLE_ASC">Judul (A - Z)</option>
-            </select>
-          </div>
-        </div>
-
         {/* Favorites Grid */}
         {filteredMovies.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-24 text-center border border-dashed border-neutral-800 rounded-2xl bg-neutral-900/30">
-            <div className="p-4 bg-neutral-900 border border-neutral-800 rounded-full mb-3">
-              <Heart className="w-8 h-8 text-neutral-600" />
+          <div className="flex flex-col items-center justify-center py-24 text-center border border-dashed border-neutral-300 rounded-2xl bg-white shadow-sm">
+            <div className="p-4 bg-rose-50 border border-rose-100 rounded-full mb-3">
+              <Heart className="w-8 h-8 text-rose-500" />
             </div>
-            <p className="text-neutral-300 text-base font-semibold">
+            <p className="text-neutral-800 text-base font-semibold">
               Belum ada film favorit
             </p>
             <p className="text-neutral-500 text-sm mt-1 max-w-sm">
@@ -184,7 +172,7 @@ export default function FavoritesPage() {
             </p>
             <Link
               href="/"
-              className="mt-5 px-4 py-2 rounded-xl bg-neutral-800 hover:bg-neutral-700 border border-neutral-700 text-xs font-medium text-white transition-colors"
+              className="mt-5 px-4 py-2 rounded-xl bg-neutral-900 hover:bg-neutral-800 text-xs font-medium text-white transition-colors shadow-sm"
             >
               Jelajahi Semua Film
             </Link>
@@ -194,58 +182,35 @@ export default function FavoritesPage() {
             {filteredMovies.map((movie) => (
               <div
                 key={movie.id}
-                className="group relative bg-neutral-900 border border-neutral-800/80 rounded-2xl overflow-hidden hover:border-rose-500/40 transition-all duration-300 hover:shadow-xl hover:shadow-rose-950/20 flex flex-col"
+                className="group relative bg-white border border-neutral-200/80 rounded-2xl overflow-hidden hover:border-rose-300 transition-all duration-300 hover:shadow-lg hover:shadow-rose-500/5 flex flex-col"
               >
-                {/* Poster Box */}
-                <div className="relative aspect-2/3 w-full bg-neutral-950 overflow-hidden">
+                {/* Poster Box / Cover */}
+                <div className="relative aspect-2/3 w-full bg-neutral-100 overflow-hidden">
                   <img
                     src={movie.posterUrl}
                     alt={movie.title}
                     className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
                   />
 
-                  {/* Top Badges */}
-                  <div className="absolute top-2.5 left-2.5 right-2.5 flex items-center justify-between gap-1 pointer-events-none">
-                    <span className="bg-neutral-950/80 backdrop-blur-md text-[10px] font-semibold px-2 py-0.5 rounded-full border border-neutral-700/50 text-neutral-300 flex items-center gap-1">
-                      {movie.status === "WATCHED" && (
-                        <CheckCircle2 className="w-3 h-3 text-emerald-400" />
-                      )}
-                      {movie.status === "WATCHLIST" && (
-                        <Bookmark className="w-3 h-3 text-amber-400" />
-                      )}
-                      {movie.status === "DELETED" && (
-                        <Trash2 className="w-3 h-3 text-rose-400" />
-                      )}
-                      {movie.status}
-                    </span>
-
-                    {movie.rating && (
-                      <span className="bg-neutral-950/80 backdrop-blur-md text-[10px] font-bold px-2 py-0.5 rounded-full border border-neutral-700/50 text-amber-400 flex items-center gap-1">
-                        <Star className="w-3 h-3 fill-amber-400" />
-                        {movie.rating}
-                      </span>
-                    )}
-                  </div>
-
                   {/* Quick Remove Favorite Button */}
                   <button
                     onClick={() => handleRemoveFavorite(movie.id)}
                     title="Hapus dari favorit"
-                    className="absolute bottom-2.5 right-2.5 p-2 rounded-full bg-rose-600/90 hover:bg-rose-700 text-white shadow-lg transition-all active:scale-90"
+                    className="absolute top-2.5 right-2.5 p-2 rounded-full bg-rose-500/90 hover:bg-rose-600 text-white shadow-md transition-all active:scale-90"
                   >
                     <Heart className="w-3.5 h-3.5 fill-white" />
                   </button>
                 </div>
 
-                {/* Details Box */}
-                <div className="p-3.5 flex flex-col flex-1 justify-between bg-neutral-900">
+                {/* Details Box: Hanya Code & Title */}
+                <div className="p-3.5 flex flex-col flex-1 justify-between bg-white">
                   <div>
-                    <h3 className="font-semibold text-sm text-neutral-100 group-hover:text-rose-400 transition-colors line-clamp-1">
-                      {movie.title}
-                    </h3>
-                    <p className="text-xs font-mono text-neutral-500 mt-1 uppercase tracking-wider">
+                    <p className="text-[11px] font-mono font-semibold text-rose-600 tracking-wider uppercase mb-1">
                       {movie.code}
                     </p>
+                    <h3 className="font-semibold text-xs text-neutral-800 group-hover:text-rose-600 transition-colors line-clamp-2 leading-relaxed">
+                      {movie.title}
+                    </h3>
                   </div>
                 </div>
               </div>
