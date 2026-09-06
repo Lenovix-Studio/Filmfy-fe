@@ -1,27 +1,31 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Film,
-  Search,
   Heart,
   Upload,
   Settings,
-  CheckCircle2,
   Bookmark,
   Trash2,
   Star,
+  Loader2,
 } from "lucide-react";
 import { Navbar } from "@/components/Navbar";
 
-// Types untuk data film
-type StatusFilter = "ALL" | "FAVORITE" | "DELETED";
+interface ApiMovie {
+  id: string;
+  code: string;
+  title: string;
+  coverPath: string | null;
+}
+
+type StatusFilter = "ALL" | "FAVORITE" | "WATCHED" | "DELETED";
 
 interface Movie {
   id: string;
@@ -29,66 +33,73 @@ interface Movie {
   title: string;
   posterUrl: string;
   rating?: number;
-  status: "WATCHED" | "WATCHLIST" | "DELETED";
+  status: "ALL" | "FAVORITE" | "WATCHED" | "DELETED";
   isFavorite: boolean;
 }
 
-// Dummy Data untuk preview
-const INITIAL_MOVIES: Movie[] = [
-  {
-    id: "1",
-    code: "ABC-123",
-    title: "Inception",
-    posterUrl:
-      "https://images.unsplash.com/photo-1536440136628-849c177e76a1?w=500&auto=format&fit=crop&q=60",
-    rating: 9.0,
-    status: "WATCHED",
-    isFavorite: true,
-  },
-  {
-    id: "2",
-    code: "XYZ-001",
-    title: "Interstellar",
-    posterUrl:
-      "https://images.unsplash.com/photo-1451187580459-43490279c0fa?w=500&auto=format&fit=crop&q=60",
-    rating: 8.7,
-    status: "WATCHED",
-    isFavorite: true,
-  },
-  {
-    id: "3",
-    code: "MOV-042",
-    title: "Dune: Part Two",
-    posterUrl:
-      "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=500&auto=format&fit=crop&q=60",
-    rating: 8.5,
-    status: "WATCHLIST",
-    isFavorite: false,
-  },
-  {
-    id: "4",
-    code: "DEL-999",
-    title: "Old Project File (Deleted)",
-    posterUrl:
-      "https://images.unsplash.com/photo-1485846234645-a62644f84728?w=500&auto=format&fit=crop&q=60",
-    status: "DELETED",
-    isFavorite: false,
-  },
-];
-
 export default function Home() {
-  const [searchQuery, setSearchQuery] = useState("");
+  const [movies, setMovies] = useState<Movie[]>([]);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [searchQuery, setSearchQuery] = useState<string>("");
   const [activeFilter, setActiveFilter] = useState<StatusFilter>("ALL");
-  const [movies] = useState<Movie[]>(INITIAL_MOVIES);
+
+  useEffect(() => {
+    async function fetchMovies() {
+      try {
+        setIsLoading(true);
+
+        const BACKEND_URL =
+          process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
+
+        const res = await fetch(`${BACKEND_URL}/movies`, {
+          headers: {
+            "Content-Type": "application/json",
+          },
+        });
+
+        const contentType = res.headers.get("content-type");
+        if (!contentType || !contentType.includes("application/json")) {
+          throw new Error(
+            "Response dari server bukan JSON. Pastikan port backend benar.",
+          );
+        }
+
+        const result = await res.json();
+
+        if (res.ok && Array.isArray(result.data)) {
+          const formattedMovies: Movie[] = result.data.map((item: ApiMovie) => {
+            const cleanCoverPath = item.coverPath?.replace(/^\//, "");
+
+            return {
+              id: item.id,
+              code: item.code,
+              title: item.title,
+              posterUrl: cleanCoverPath
+                ? `${BACKEND_URL}/storage/${cleanCoverPath}`
+                : "/placeholder-poster.webp",
+              status: "DELETED",
+              isFavorite: false,
+            };
+          });
+
+          setMovies(formattedMovies);
+        }
+      } catch (error) {
+        console.error("Gagal mengambil data film:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    }
+
+    fetchMovies();
+  }, []);
 
   // Filter Logic
   const filteredMovies = movies.filter((movie) => {
-    // Search match (by title or code)
     const matchesSearch =
       movie.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
       movie.code.toLowerCase().includes(searchQuery.toLowerCase());
 
-    // Category Filter
     if (!matchesSearch) return false;
     if (activeFilter === "ALL") return true;
     if (activeFilter === "FAVORITE") return movie.isFavorite;
@@ -144,9 +155,6 @@ export default function Home() {
         }
       />
 
-      {/* ────────────────────────────────────────────────────────────── */}
-      {/* MAIN CONTENT                                                   */}
-      {/* ────────────────────────────────────────────────────────────── */}
       <main className="max-w-7xl mx-auto px-4 sm:px-8 py-8 space-y-6">
         {/* Filter Toolbar */}
         <div className="flex items-center gap-3 border-b border-border pb-3 overflow-x-auto scrollbar-none">
@@ -173,7 +181,14 @@ export default function Home() {
         </div>
 
         {/* Movie Grid */}
-        {filteredMovies.length === 0 ? (
+        {isLoading ? (
+          <div className="flex flex-col items-center justify-center py-20 text-center">
+            <Loader2 className="w-10 h-10 animate-spin text-rose-500 mb-3" />
+            <p className="text-muted-foreground text-sm font-medium">
+              Memuat daftar film...
+            </p>
+          </div>
+        ) : filteredMovies.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-20 text-center">
             <Film className="w-12 h-12 text-muted-foreground/40 mb-3" />
             <p className="text-muted-foreground text-base font-medium">
@@ -189,24 +204,20 @@ export default function Home() {
               <Link key={movie.id} href={`/movie/${movie.id}`}>
                 <Card className="group relative overflow-hidden transition-all duration-300 hover:border-border hover:shadow-xl hover:shadow-black/40 flex flex-col h-full bg-card">
                   {/* Poster Box */}
-                  <div className="relative aspect-2/3 w-full bg-muted overflow-hidden">
+                  <div className="relative aspect-2/3 w-full bg-neutral-100 overflow-hidden">
                     <img
                       src={movie.posterUrl}
                       alt={movie.title}
                       className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
                     />
 
-                    {/* Badges on Top Image */}
                     <div className="absolute top-2.5 left-2.5 right-2.5 flex items-center justify-between gap-1 pointer-events-none">
                       {/* Status Badge */}
                       <Badge
                         variant="secondary"
                         className="bg-background/80 backdrop-blur-md text-[10px] gap-1 px-2 py-0.5 border-border/50 font-semibold"
                       >
-                        {movie.status === "WATCHED" && (
-                          <CheckCircle2 className="w-3 h-3 text-emerald-400" />
-                        )}
-                        {movie.status === "WATCHLIST" && (
+                        {movie.status === "FAVORITE" && (
                           <Bookmark className="w-3 h-3 text-amber-400" />
                         )}
                         {movie.status === "DELETED" && (
@@ -241,7 +252,7 @@ export default function Home() {
                       <h3 className="font-semibold text-sm text-card-foreground group-hover:text-rose-500 transition-colors line-clamp-1">
                         {movie.title}
                       </h3>
-                      <p className="text-base font-mono text-muted-foreground mt-1 uppercase tracking-wider">
+                      <p className="text-xs font-mono text-muted-foreground mt-1 uppercase tracking-wider">
                         {movie.code}
                       </p>
                     </div>
