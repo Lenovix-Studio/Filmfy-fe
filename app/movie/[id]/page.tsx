@@ -1,174 +1,139 @@
 import { Button } from "@/components/ui/button";
 import Image from "next/image";
-import Link from "next/link";
 import { Navbar } from "@/components/Navbar";
+import { notFound } from "next/navigation";
 
-// 1. Update tipe props agar params berbentuk Promise
+export interface MovieDetailBackend {
+  id: string;
+  code: string;
+  title: string;
+  originalTitle: string | null;
+  overview: string | null;
+  releaseDate: string | null;
+  runtimeMinutes: number | null;
+  language: string | null;
+  country: string | null;
+  tmdbId: number | null;
+  imdbId: string | null;
+  createdAt: string;
+  updatedAt: string;
+  studios: { id: string; name: string }[];
+  series: { id: string; name: string }[];
+  labels: { id: string; name: string }[];
+  genres: { id: string; name: string }[];
+  directors: { id: string; name: string }[];
+  casts: { id: string; name: string }[];
+  images: {
+    id: string;
+    movie_id: string;
+    image_type: string;
+    file_path: string;
+  }[];
+  files: {
+    id: string;
+    movie_id: string;
+    file_path: string;
+    resolution: string | null;
+    video_codec: string | null;
+    audio_codec: string | null;
+    duration_seconds: number | null;
+    file_size: number | null;
+    checksum: string | null;
+    created_at: string;
+  }[];
+}
+
 interface MovieDetailProps {
   params: Promise<{
     id: string;
   }>;
 }
 
-export interface MovieDetail {
-  id: string;
-  code: string;
-  title: string;
-  posterUrl: string;
-  coverUrl: string;
-  videoUrl: string;
-  director: string;
-  studio: string;
-  label: string;
-  series?: string;
-  genres: string[];
-  cast: string[];
-  rating?: number;
-  status: "WATCHED" | "WATCHLIST" | "DELETED";
-  isFavorite: boolean;
-  releaseDate?: string;
-  duration?: string;
-  description?: string;
+async function getMovieDetail(id: string): Promise<MovieDetailBackend | null> {
+  try {
+    const backendUrl =
+      process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
+    const res = await fetch(`${backendUrl}/movies/${id}`, {
+      cache: "no-store",
+    });
+
+    if (!res.ok) {
+      if (res.status === 404) return null;
+      throw new Error(`Failed to fetch movie: ${res.statusText}`);
+    }
+
+    return await res.json();
+  } catch (error) {
+    console.error("Error fetching movie detail:", error);
+    return null;
+  }
 }
 
-const DUMMY_MOVIES: Record<string, MovieDetail> = {
-  "1": {
-    id: "1",
-    code: "ABC-123",
-    title: "Inception",
-    posterUrl:
-      "https://images.unsplash.com/photo-1536440136628-849c177e76a1?w=500&auto=format&fit=crop&q=60",
-    coverUrl:
-      "https://images.unsplash.com/photo-1536440136628-849c177e76a1?auto=format&fit=crop&q=80&w=1200",
-    videoUrl:
-      "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4",
-    director: "Christopher Nolan",
-    studio: "Syncopy / Warner Bros.",
-    label: "Blockbuster Collection",
-    series: "Nolan Mind-Benders",
-    genres: ["Sci-Fi", "Action", "Thriller"],
-    cast: [
-      "Leonardo DiCaprio",
-      "Joseph Gordon-Levitt",
-      "Elliot Page",
-      "Tom Hardy",
-    ],
-    rating: 9.0,
-    status: "WATCHED",
-    isFavorite: true,
-    releaseDate: "2010-07-16",
-    duration: "2h 28m",
-    description:
-      "Seorang pencuri yang mencuri rahasia korporat melalui penggunaan teknologi berbagi mimpi diberikan tugas sebaliknya untuk menanamkan ide ke dalam pikiran seorang CEO.",
-  },
-  "2": {
-    id: "2",
-    code: "XYZ-001",
-    title: "Interstellar",
-    posterUrl:
-      "https://images.unsplash.com/photo-1451187580459-43490279c0fa?w=500&auto=format&fit=crop&q=60",
-    coverUrl:
-      "https://images.unsplash.com/photo-1451187580459-43490279c0fa?auto=format&fit=crop&q=80&w=1200",
-    videoUrl:
-      "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4",
-    director: "Christopher Nolan",
-    studio: "Paramount Pictures / Syncopy",
-    label: "Collector's Edition",
-    series: "Space Exploration Arc",
-    genres: ["Sci-Fi", "Drama", "Adventure"],
-    cast: [
-      "Matthew McConaughey",
-      "Anne Hathaway",
-      "Jessica Chastain",
-      "Michael Caine",
-    ],
-    rating: 8.7,
-    status: "WATCHED",
-    isFavorite: true,
-    releaseDate: "2014-11-07",
-    duration: "2h 49m",
-    description:
-      "Ketika Bumi menjadi tidak layak huni lagi di masa depan, seorang mantan pilot NASA memimpin tim penjelajah melintasi wormhole untuk menemukan planet baru bagi umat manusia.",
-  },
-  "3": {
-    id: "3",
-    code: "MOV-042",
-    title: "Dune: Part Two",
-    posterUrl:
-      "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=500&auto=format&fit=crop&q=60",
-    coverUrl:
-      "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?auto=format&fit=crop&q=80&w=1200",
-    videoUrl:
-      "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4",
-    director: "Denis Villeneuve",
-    studio: "Legendary Pictures / Warner Bros.",
-    label: "IMAX Special",
-    series: "Dune Saga",
-    genres: ["Sci-Fi", "Adventure", "Action"],
-    cast: ["Timothée Chalamet", "Zendaya", "Rebecca Ferguson", "Javier Bardem"],
-    rating: 8.5,
-    status: "WATCHLIST",
-    isFavorite: false,
-    releaseDate: "2024-03-01",
-    duration: "2h 46m",
-    description:
-      "Paul Atreides bersatu dengan Chani dan suku Fremen untuk membalas dendam terhadap para konspirator yang menghancurkan keluarganya.",
-  },
-  "4": {
-    id: "4",
-    code: "DEL-999",
-    title: "Old Project File (Deleted)",
-    posterUrl:
-      "https://images.unsplash.com/photo-1485846234645-a62644f84728?w=500&auto=format&fit=crop&q=60",
-    coverUrl:
-      "https://images.unsplash.com/photo-1485846234645-a62644f84728?auto=format&fit=crop&q=80&w=1200",
-    videoUrl: "",
-    director: "Unknown",
-    studio: "Archived Studio",
-    label: "Legacy Archive",
-    series: "-",
-    genres: ["Documentary", "Archive"],
-    cast: ["N/A"],
-    status: "DELETED",
-    isFavorite: false,
-    releaseDate: "2020-01-01",
-    duration: "1h 10m",
-    description: "File rekaman lama yang sudah dihapus dari repositori aktif.",
-  },
-};
-
 export default async function MovieDetailPage({ params }: MovieDetailProps) {
-  // 2. Unwrapping `params` dengan `await`
   const { id } = await params;
+  const movie = await getMovieDetail(id);
 
-  // Mengambil data berdasarkan ID, jika tidak ada fallback ke ID 1
-  const movie: MovieDetail = DUMMY_MOVIES[id] || DUMMY_MOVIES["1"];
+  if (!movie) {
+    notFound();
+  }
+
+  const mediaStorageUrl =
+    process.env.NEXT_PUBLIC_STORAGE_URL || "http://localhost:3001/storage";
+
+  const formatMediaUrl = (filePath: string) => {
+    if (!filePath) return "";
+
+    // Jika file_path dari database sudah diawali dengan 'storage/' atau '/storage/'
+    if (filePath.startsWith("storage/") || filePath.startsWith("/storage/")) {
+      const cleanPath = filePath.replace(/^\/?storage\//, "");
+      return `${mediaStorageUrl}/${cleanPath}`;
+    }
+
+    const cleanPath = filePath.startsWith("/") ? filePath.slice(1) : filePath;
+    return `${mediaStorageUrl}/${cleanPath}`;
+  };
+
+  const coverImage =
+    movie.images?.find((img) => img.image_type === "cover") ||
+    movie.images?.[0];
+  const posterImage =
+    movie.images?.find((img) => img.image_type === "poster") || coverImage;
+
+  const coverUrl = coverImage
+    ? formatMediaUrl(coverImage.file_path)
+    : "/placeholder.jpg";
+  const posterUrl = posterImage
+    ? formatMediaUrl(posterImage.file_path)
+    : coverUrl;
+
+  const videoFile = movie.files?.[0];
+  const videoUrl = videoFile ? formatMediaUrl(videoFile.file_path) : null;
+
+  const durationText = movie.runtimeMinutes
+    ? `${movie.runtimeMinutes} mnt`
+    : null;
 
   return (
     <main className="min-h-screen bg-slate-950 text-slate-100 pb-16">
       <Navbar
+        leftMode="back"
         rightActions={
           <Button variant="destructive" size="sm" className="rounded-xl">
             Hapus Film
           </Button>
         }
       />
+
       {/* MAIN CONTENT */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-8 space-y-10">
-        {/* 2. VIDEO STREAMING SECTION */}
         <section className="space-y-3">
-          <h2 className="text-xl font-semibold text-white flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
-            Streaming Film
-          </h2>
-
           <div className="relative w-full aspect-video bg-black rounded-2xl overflow-hidden shadow-2xl border border-slate-800">
-            {movie.videoUrl ? (
+            {videoUrl ? (
               <video
-                src={movie.videoUrl}
+                src={videoUrl}
                 controls
                 controlsList="nodownload"
-                poster={movie.coverUrl}
+                poster={coverUrl}
                 className="w-full h-full object-contain"
               >
                 Browser Anda tidak mendukung tag video.
@@ -193,26 +158,29 @@ export default async function MovieDetailPage({ params }: MovieDetailProps) {
           </div>
         </section>
 
-        {/* 1. HERO / COVER SECTION */}
-        <div className="relative w-full h-87.5 md:h-112.5 bg-slate-900 overflow-hidden">
-          <Image
-            src={movie.coverUrl}
-            alt={movie.title}
-            fill
-            priority
-            sizes="100vw"
-            className="object-cover opacity-30 blur-sm scale-105"
-          />
+        <div className="relative w-full h-87.5 md:h-112.5 bg-slate-900 overflow-hidden rounded-2xl border border-slate-800">
+          {coverUrl && (
+            <Image
+              src={coverUrl}
+              alt={movie.title}
+              fill
+              priority
+              unoptimized
+              sizes="100vw"
+              className="object-cover opacity-30 blur-sm scale-105"
+            />
+          )}
           <div className="absolute inset-0 bg-linear-to-t from-slate-950 via-slate-950/60 to-transparent" />
 
           <div className="relative max-w-7xl mx-auto h-full px-4 sm:px-6 lg:px-8 flex items-end pb-8">
             <div className="flex flex-col md:flex-row items-start md:items-end gap-6 w-full">
               {/* Poster Image */}
-              <div className="relative w-36 h-52 md:w-48 md:h-72 rounded-xl overflow-hidden shadow-2xl border-2 border-slate-700/50 shrink-0">
+              <div className="relative w-36 h-52 md:w-48 md:h-72 rounded-xl overflow-hidden shadow-2xl border-2 border-slate-700/50 shrink-0 bg-slate-800">
                 <Image
-                  src={movie.posterUrl}
+                  src={posterUrl}
                   alt={movie.title}
                   fill
+                  unoptimized
                   sizes="(max-width: 768px) 144px, 192px"
                   className="object-cover"
                 />
@@ -221,42 +189,33 @@ export default async function MovieDetailPage({ params }: MovieDetailProps) {
               {/* Title & Badges */}
               <div className="flex-1 space-y-3">
                 <div className="flex items-center gap-3 flex-wrap">
-                  <span className="px-3 py-1 bg-indigo-600/80 text-indigo-100 font-mono text-xs rounded-md border border-indigo-500/30 font-semibold">
+                  <span className="px-3 py-1 bg-indigo-600/80 text-indigo-100 font-mono text-xs rounded-md border border-indigo-500/30 font-semibold uppercase">
                     {movie.code}
                   </span>
-
-                  <span
-                    className={`px-3 py-1 text-xs rounded-md font-semibold border ${
-                      movie.status === "WATCHED"
-                        ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/30"
-                        : movie.status === "WATCHLIST"
-                          ? "bg-amber-500/20 text-amber-400 border-amber-500/30"
-                          : "bg-red-500/20 text-red-400 border-red-500/30"
-                    }`}
-                  >
-                    {movie.status}
-                  </span>
-
-                  {movie.isFavorite && (
-                    <span className="px-3 py-1 bg-rose-500/20 text-rose-300 text-xs rounded-md border border-rose-500/30 font-medium">
-                      ★ Favorite
-                    </span>
-                  )}
                 </div>
 
                 <h1 className="text-2xl md:text-4xl font-bold tracking-tight text-white">
                   {movie.title}
                 </h1>
 
-                <div className="flex items-center gap-4 text-sm text-slate-400">
-                  {movie.rating && (
-                    <span className="text-amber-400 font-semibold flex items-center gap-1">
-                      ★ {movie.rating} / 10
+                {movie.originalTitle && (
+                  <p className="text-sm text-slate-400 italic">
+                    {movie.originalTitle}
+                  </p>
+                )}
+
+                <div className="flex items-center gap-4 text-sm text-slate-400 flex-wrap">
+                  {durationText && <span>{durationText}</span>}
+                  {movie.releaseDate && (
+                    <span>
+                      Released:{" "}
+                      {new Date(movie.releaseDate).toLocaleDateString("id-ID")}
                     </span>
                   )}
-                  <span>{movie.duration}</span>
-                  {movie.releaseDate && (
-                    <span>Released: {movie.releaseDate}</span>
+                  {movie.language && (
+                    <span className="uppercase px-2 py-0.5 bg-slate-800 rounded text-xs">
+                      {movie.language}
+                    </span>
                   )}
                 </div>
               </div>
@@ -272,7 +231,7 @@ export default async function MovieDetailPage({ params }: MovieDetailProps) {
             <div className="bg-slate-900/60 p-6 rounded-2xl border border-slate-800 space-y-3">
               <h3 className="text-lg font-semibold text-white">Deskripsi</h3>
               <p className="text-slate-300 text-sm leading-relaxed">
-                {movie.description || "Belum ada deskripsi untuk film ini."}
+                {movie.overview || "Belum ada deskripsi untuk film ini."}
               </p>
             </div>
 
@@ -282,14 +241,18 @@ export default async function MovieDetailPage({ params }: MovieDetailProps) {
                 Genre / Tag
               </h3>
               <div className="flex flex-wrap gap-2">
-                {movie.genres.map((genre) => (
-                  <span
-                    key={genre}
-                    className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium rounded-lg border border-slate-700 transition"
-                  >
-                    {genre}
-                  </span>
-                ))}
+                {movie.genres && movie.genres.length > 0 ? (
+                  movie.genres.map((item) => (
+                    <span
+                      key={item.id}
+                      className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium rounded-lg border border-slate-700 transition"
+                    >
+                      {item.name}
+                    </span>
+                  ))
+                ) : (
+                  <span className="text-slate-500 text-xs">-</span>
+                )}
               </div>
             </div>
 
@@ -299,14 +262,18 @@ export default async function MovieDetailPage({ params }: MovieDetailProps) {
                 Pemeran (Cast)
               </h3>
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                {movie.cast.map((actor) => (
-                  <div
-                    key={actor}
-                    className="p-3 bg-slate-800/40 rounded-xl border border-slate-800/80 text-slate-200 text-sm font-medium"
-                  >
-                    {actor}
-                  </div>
-                ))}
+                {movie.casts && movie.casts.length > 0 ? (
+                  movie.casts.map((actor) => (
+                    <div
+                      key={actor.id}
+                      className="p-3 bg-slate-800/40 rounded-xl border border-slate-800/80 text-slate-200 text-sm font-medium"
+                    >
+                      {actor.name}
+                    </div>
+                  ))
+                ) : (
+                  <span className="text-slate-500 text-xs col-span-2">-</span>
+                )}
               </div>
             </div>
           </div>
@@ -323,7 +290,7 @@ export default async function MovieDetailPage({ params }: MovieDetailProps) {
                   <span className="text-slate-400 block text-xs uppercase tracking-wider mb-1">
                     Kode
                   </span>
-                  <span className="font-mono text-indigo-400 font-semibold">
+                  <span className="font-mono text-indigo-400 font-semibold uppercase">
                     {movie.code}
                   </span>
                 </div>
@@ -333,7 +300,7 @@ export default async function MovieDetailPage({ params }: MovieDetailProps) {
                     Sutradara (Director)
                   </span>
                   <span className="text-slate-200 font-medium">
-                    {movie.director}
+                    {movie.directors?.map((d) => d.name).join(", ") || "-"}
                   </span>
                 </div>
 
@@ -342,7 +309,7 @@ export default async function MovieDetailPage({ params }: MovieDetailProps) {
                     Studio
                   </span>
                   <span className="text-slate-200 font-medium">
-                    {movie.studio}
+                    {movie.studios?.map((s) => s.name).join(", ") || "-"}
                   </span>
                 </div>
 
@@ -351,17 +318,17 @@ export default async function MovieDetailPage({ params }: MovieDetailProps) {
                     Label
                   </span>
                   <span className="text-slate-200 font-medium">
-                    {movie.label}
+                    {movie.labels?.map((l) => l.name).join(", ") || "-"}
                   </span>
                 </div>
 
-                {movie.series && (
+                {movie.series && movie.series.length > 0 && (
                   <div>
                     <span className="text-slate-400 block text-xs uppercase tracking-wider mb-1">
                       Seri (Series)
                     </span>
                     <span className="text-amber-400 font-medium">
-                      {movie.series}
+                      {movie.series.map((s) => s.name).join(", ")}
                     </span>
                   </div>
                 )}
