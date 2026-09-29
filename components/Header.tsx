@@ -8,7 +8,6 @@ export interface HeaderProps {
   left?: ReactNode | boolean;
   center?: ReactNode | boolean;
   right?: ReactNode | boolean;
-  searchQuery?: string;
   onSearchChange?: (value: string) => void;
   searchPlaceholder?: string;
   className?: string;
@@ -18,7 +17,6 @@ export const Header: React.FC<HeaderProps> = ({
   left,
   center,
   right,
-  searchQuery = "",
   onSearchChange,
   searchPlaceholder = "Cari film atau series...",
   className = "",
@@ -49,7 +47,6 @@ export const Header: React.FC<HeaderProps> = ({
         <Input
           type="text"
           placeholder={searchPlaceholder}
-          value={searchQuery}
           onChange={(e) => onSearchChange?.(e.target.value)}
           className="pl-9 pr-4 bg-slate-100/80 border-slate-200 text-slate-900 placeholder:text-slate-400 focus-visible:ring-rose-500 focus-visible:bg-white transition-all w-full"
         />

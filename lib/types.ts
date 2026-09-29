@@ -1,3 +1,20 @@
+// Homepage
+export interface ApiMovie {
+  id: string;
+  code: string;
+  title: string;
+  coverPath: string | null;
+}
+export interface Movie {
+  id: string;
+  code: string;
+  title: string;
+  posterUrl: string;
+  rating?: number;
+  status: string;
+  isFavorite: boolean;
+}
+
 // Setting Page
 export type SettingsTabType = "common_code" | "other";
 export interface CodeType {
