@@ -2,6 +2,7 @@ import { Button } from "@/components/ui/button";
 import Image from "next/image";
 import { Navbar } from "@/components/Navbar";
 import { notFound } from "next/navigation";
+import { BACKEND_URL, STORAGE_URL } from "@/lib/constant";
 
 export interface MovieDetailBackend {
   id: string;
@@ -51,9 +52,7 @@ interface MovieDetailProps {
 
 async function getMovieDetail(id: string): Promise<MovieDetailBackend | null> {
   try {
-    const backendUrl =
-      process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
-    const res = await fetch(`${backendUrl}/movies/${id}`, {
+    const res = await fetch(`${BACKEND_URL}/movies/${id}`, {
       cache: "no-store",
     });
 
@@ -77,20 +76,17 @@ export default async function MovieDetailPage({ params }: MovieDetailProps) {
     notFound();
   }
 
-  const mediaStorageUrl =
-    process.env.NEXT_PUBLIC_STORAGE_URL || "http://localhost:3001/storage";
-
   const formatMediaUrl = (filePath: string) => {
     if (!filePath) return "";
 
     // Jika file_path dari database sudah diawali dengan 'storage/' atau '/storage/'
     if (filePath.startsWith("storage/") || filePath.startsWith("/storage/")) {
       const cleanPath = filePath.replace(/^\/?storage\//, "");
-      return `${mediaStorageUrl}/${cleanPath}`;
+      return `${STORAGE_URL}/${cleanPath}`;
     }
 
     const cleanPath = filePath.startsWith("/") ? filePath.slice(1) : filePath;
-    return `${mediaStorageUrl}/${cleanPath}`;
+    return `${STORAGE_URL}/${cleanPath}`;
   };
 
   const coverImage =

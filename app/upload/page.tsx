@@ -9,6 +9,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { X, Image as ImageIcon, Film, Upload, Settings } from "lucide-react";
 import { Navbar } from "@/components/Navbar";
 import Link from "next/link";
+import { BACKEND_URL } from "@/lib/constant";
 
 interface FilmFormData {
   code: string;
@@ -41,8 +42,6 @@ interface UploadResponse {
     updated_at: string;
   };
 }
-
-const API_URL = "http://localhost:3001";
 
 export default function UploadPage() {
   const [formData, setFormData] = useState<FilmFormData>({
@@ -176,7 +175,7 @@ export default function UploadPage() {
 
       console.log("Uploading film...");
 
-      const response = await fetch(`${API_URL}/movies/upload`, {
+      const response = await fetch(`${BACKEND_URL}/movies/upload`, {
         method: "POST",
         body: data,
       });

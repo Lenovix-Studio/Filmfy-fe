@@ -17,6 +17,7 @@ import {
   Loader2,
 } from "lucide-react";
 import { Navbar } from "@/components/Navbar";
+import { BACKEND_URL } from "@/lib/constant";
 
 interface ApiMovie {
   id: string;
@@ -47,9 +48,6 @@ export default function Home() {
     async function fetchMovies() {
       try {
         setIsLoading(true);
-
-        const BACKEND_URL =
-          process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
 
         const res = await fetch(`${BACKEND_URL}/movies`, {
           headers: {
