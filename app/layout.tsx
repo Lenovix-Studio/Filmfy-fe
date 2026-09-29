@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
+import { Toaster } from "sonner";
 
 const geistSans = Geist({
   variable: "--font-sans",
@@ -13,11 +14,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Filmfy — Personal Movie Library & Collection",
-  description:
-    "Kelola dan simpan koleksi film favorit, watchlist, hingga film yang telah kamu hapus.",
-  icons: {
-    icon: "/favicon.ico",
+  title: {
+    default: "Filmfy — Personal Movie Library & Collection",
+    template: "%s | Filmfy",
   },
 };
 
@@ -34,6 +33,7 @@ export default function RootLayout({
     >
       <body className="min-h-full flex flex-col bg-background text-foreground selection:bg-rose-600 selection:text-white">
         {children}
+        <Toaster position="bottom-right" />
       </body>
     </html>
   );
