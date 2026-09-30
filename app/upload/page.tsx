@@ -1,19 +1,36 @@
 "use client";
 
-import { useState, ChangeEvent, FormEvent } from "react";
+import { useState, useEffect, ChangeEvent, FormEvent } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
-import { X, Image as ImageIcon, Film, Upload, Settings } from "lucide-react";
-import { Navbar } from "@/components/Navbar";
+import {
+  Image as ImageIcon,
+  Film,
+  Upload,
+  Settings,
+  Sparkles,
+  FileText,
+} from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import Link from "next/link";
 import { BACKEND_URL } from "@/lib/constant";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import Header from "@/components/Header";
+import { toast } from "sonner";
 
 interface FilmFormData {
   code: string;
   title: string;
+  status: string;
   overview: string;
   director: string;
   studio: string;
@@ -23,30 +40,21 @@ interface FilmFormData {
   series: string;
 }
 
-interface UploadResponse {
-  statusCode: number;
-  message: string;
-  data?: {
-    id: string;
-    code: string;
-    title: string;
-    original_title: string | null;
-    overview: string | null;
-    release_date: string | null;
-    runtime_minutes: number | null;
-    language: string | null;
-    country: string | null;
-    tmdb_id: number | null;
-    imdb_id: string | null;
-    created_at: string;
-    updated_at: string;
-  };
-}
-
 export default function UploadPage() {
+  const [coverFile, setCoverFile] = useState<File | null>(null);
+  const [coverPreview, setCoverPreview] = useState<string | null>(null);
+  const [videoFile, setVideoFile] = useState<File | null>(null);
+  const [videoPreview, setVideoPreview] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+  const [activeTab, setActiveTab] = useState<string>("media");
+  const [statusOptions, setStatusOptions] = useState<
+    { id: string; label: string }[]
+  >([]);
+
   const [formData, setFormData] = useState<FilmFormData>({
     code: "",
     title: "",
+    status: "",
     overview: "",
     director: "",
     studio: "",
@@ -56,71 +64,88 @@ export default function UploadPage() {
     series: "",
   });
 
-  const [coverFile, setCoverFile] = useState<File | null>(null);
-  const [coverPreview, setCoverPreview] = useState<string | null>(null);
-  const [videoFile, setVideoFile] = useState<File | null>(null);
+  useEffect(() => {
+    async function fetchStatus() {
+      try {
+        const res = await fetch(`${BACKEND_URL}/common-codes/STATUS/details`);
+        if (res.ok) {
+          const result = await res.json();
+          const arrayData = Array.isArray(result) ? result : result?.data || [];
+          const activeStatus = arrayData
+            .filter(
+              (item: any) =>
+                item.is_active !== false &&
+                (item.code === "WATCHED" || item.code === "DELETED"),
+            )
+            .sort((a: any, b: any) => a.order - b.order);
 
-  const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+          const options = activeStatus.map((item: any) => ({
+            id: item.code,
+            label: item.label,
+          }));
+
+          setStatusOptions(options);
+
+          if (options.length > 0) {
+            setFormData((prev) => ({
+              ...prev,
+              status: prev.status || options[0].id,
+            }));
+          }
+        }
+      } catch (error) {
+        console.error("Gagal mengambil status", error);
+      }
+    }
+    fetchStatus();
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (videoPreview) URL.revokeObjectURL(videoPreview);
+    };
+  }, [videoPreview]);
 
   const handleInputChange = (
     e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
   ) => {
     const { name, value } = e.target;
-
-    setFormData((prev) => ({
-      ...prev,
-      [name]: value,
-    }));
+    setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
   const handleCoverChange = (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-
-    if (!file) {
-      return;
-    }
+    if (!file) return;
 
     setCoverFile(file);
-
     const reader = new FileReader();
-
-    reader.onloadend = () => {
-      setCoverPreview(reader.result as string);
-    };
-
+    reader.onloadend = () => setCoverPreview(reader.result as string);
     reader.readAsDataURL(file);
   };
 
   const handleVideoChange = (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-
-    if (!file) {
-      return;
+    if (file) {
+      setVideoFile(file);
+      setVideoPreview(URL.createObjectURL(file));
     }
+  };
 
-    setVideoFile(file);
+  const parseCommaSeparated = (value: string) => {
+    return value
+      .split(",")
+      .map((v) => v.trim())
+      .filter((v) => v.length > 0);
   };
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
-    if (isSubmitting) {
-      return;
-    }
-
-    // Validation
-    if (!coverFile) {
-      alert("Cover film wajib diunggah!");
-      return;
-    }
+    if (isSubmitting) return;
 
     if (!formData.code.trim()) {
-      alert("Code wajib diisi!");
-      return;
-    }
-
-    if (!formData.title.trim()) {
-      alert("Title wajib diisi!");
+      toast.error("Code wajib diisi!");
+      setActiveTab("metadata");
       return;
     }
 
@@ -129,81 +154,54 @@ export default function UploadPage() {
     try {
       const data = new FormData();
 
-      // =========================
-      // FILE
-      // =========================
-
-      data.append("cover", coverFile);
-
-      if (videoFile) {
-        data.append("video", videoFile);
-      }
-
-      // =========================
-      // METADATA
-      // =========================
+      if (coverFile) data.append("cover", coverFile);
+      if (videoFile) data.append("video", videoFile);
 
       data.append("code", formData.code.trim());
-      data.append("title", formData.title.trim());
+      data.append("title", formData.title.trim() || formData.code.trim());
       data.append("overview", formData.overview.trim());
+      if (formData.status) data.append("status", formData.status);
 
-      if (formData.director.trim()) {
-        data.append("director", formData.director.trim());
-      }
+      const directorArray = parseCommaSeparated(formData.director);
+      directorArray.forEach((d) => data.append("director", d));
 
-      if (formData.studio.trim()) {
-        data.append("studio", formData.studio.trim());
-      }
+      const studioArray = parseCommaSeparated(formData.studio);
+      studioArray.forEach((s) => data.append("studio", s));
 
-      if (formData.label.trim()) {
-        data.append("label", formData.label.trim());
-      }
+      const labelArray = parseCommaSeparated(formData.label);
+      labelArray.forEach((l) => data.append("label", l));
 
-      if (formData.series.trim()) {
-        data.append("series", formData.series.trim());
-      }
+      const seriesArray = parseCommaSeparated(formData.series);
+      seriesArray.forEach((s) => data.append("series", s));
 
-      if (formData.cast.trim()) {
-        data.append("cast", formData.cast.trim());
-      }
+      const castArray = parseCommaSeparated(formData.cast);
+      castArray.forEach((c) => data.append("cast", c));
 
-      // IMPORTANT:
-      // Backend menggunakan field "genre", bukan "genres"
-      if (formData.genres.trim()) {
-        data.append("genre", formData.genres.trim());
-      }
-
-      console.log("Uploading film...");
+      const genreArray = parseCommaSeparated(formData.genres);
+      genreArray.forEach((g) => data.append("genre", g));
 
       const response = await fetch(`${BACKEND_URL}/movies/upload`, {
         method: "POST",
         body: data,
       });
 
-      let result: UploadResponse | null = null;
-
+      let result: any = null;
       try {
         result = await response.json();
-      } catch {
-        // Backend mungkin mengembalikan response
-        // yang bukan JSON.
-      }
+      } catch {}
 
       if (!response.ok) {
-        const errorMessage =
-          result?.message || `Upload gagal dengan status ${response.status}`;
-
-        throw new Error(errorMessage);
+        throw new Error(
+          result?.message || `Upload gagal dengan status ${response.status}`,
+        );
       }
 
-      console.log("Upload success:", result);
+      toast.success(result?.message || "Film berhasil diunggah!");
 
-      alert(result?.message || "Film berhasil diunggah!");
-
-      // Reset form setelah berhasil
       setFormData({
         code: "",
         title: "",
+        status: "",
         overview: "",
         director: "",
         studio: "",
@@ -212,47 +210,40 @@ export default function UploadPage() {
         cast: "",
         series: "",
       });
-
       setCoverFile(null);
       setCoverPreview(null);
       setVideoFile(null);
-
-      // Reset input file
-      const coverInput = document.getElementById(
-        "cover-input",
-      ) as HTMLInputElement | null;
-
-      const videoInput = document.getElementById(
-        "video-input",
-      ) as HTMLInputElement | null;
-
-      if (coverInput) {
-        coverInput.value = "";
-      }
-
-      if (videoInput) {
-        videoInput.value = "";
-      }
+      setVideoPreview(null);
+      setActiveTab("media");
     } catch (error) {
       console.error("Upload failed:", error);
-
-      const message =
+      toast.error(
         error instanceof Error
           ? error.message
-          : "Terjadi kesalahan saat mengunggah film.";
-
-      alert(message);
+          : "Terjadi kesalahan saat mengunggah film.",
+      );
     } finally {
       setIsSubmitting(false);
     }
   };
 
   return (
-    <div className="bg-white">
-      <Navbar
-        leftMode="back"
-        rightActions={
+    <div className="bg-white min-h-screen">
+      <Header
+        center={<h1>Upload Film</h1>}
+        right={
           <div className="flex items-center gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="lg"
+              className="rounded-xl border-slate-200 hover:bg-slate-100 text-slate-700 shadow-sm flex items-center gap-2"
+              disabled={isSubmitting}
+            >
+              <Sparkles className="w-4 h-4 text-rose-600" />
+              <span className="hidden sm:inline">Extract</span>
+            </Button>
+
             <Button
               type="submit"
               form="upload-form"
@@ -278,308 +269,346 @@ export default function UploadPage() {
         }
       />
 
-      <div className="min-h-[calc(100vh-65px)] max-w-7xl w-full mx-auto px-4 sm:px-8 py-8">
-        {/* MAIN FORM GRID */}
-        <form
-          id="upload-form"
-          onSubmit={handleSubmit}
-          className="grid grid-cols-12 gap-4 my-auto pt-3"
-        >
-          {/* LEFT COLUMN */}
-          <div className="col-span-4 flex flex-col gap-3 h-full">
-            {/* COVER */}
-            <div className="flex-1 flex flex-col">
-              <div className="relative flex-1 border-2 border-dashed border-slate-300 hover:border-rose-500 rounded-xl bg-slate-50/80 hover:bg-rose-50/30 flex items-center justify-center p-2 text-center transition-all group">
-                {coverPreview ? (
-                  <div className="relative w-full h-full flex items-center justify-center">
-                    <img
-                      src={coverPreview}
-                      alt="Cover Preview"
-                      className="w-full h-full object-contain rounded-lg shadow-sm"
-                    />
+      <div className="max-w-7xl w-full mx-auto px-4 sm:px-8 py-5">
+        <form id="upload-form" onSubmit={handleSubmit}>
+          <Tabs
+            value={activeTab}
+            onValueChange={setActiveTab}
+            className="w-full"
+          >
+            <TabsList className="w-full mb-3 max-w-sm bg-slate-100 p-1 rounded-xl mx-auto grid grid-cols-2">
+              <TabsTrigger
+                value="media"
+                className="rounded-lg flex items-center justify-center gap-2 text-xs font-semibold"
+              >
+                <Film className="w-4 h-4" />
+                <span>Media</span>
+              </TabsTrigger>
 
-                    <Button
-                      type="button"
-                      variant="destructive"
-                      size="icon"
-                      onClick={() => {
-                        setCoverFile(null);
-                        setCoverPreview(null);
+              <TabsTrigger
+                value="metadata"
+                className="rounded-lg flex items-center justify-center gap-2 text-xs font-semibold"
+              >
+                <FileText className="w-4 h-4" />
+                <span>Metadata</span>
+              </TabsTrigger>
+            </TabsList>
 
-                        const input = document.getElementById(
-                          "cover-input",
-                        ) as HTMLInputElement | null;
-
-                        if (input) {
-                          input.value = "";
-                        }
-                      }}
-                      disabled={isSubmitting}
-                      className="absolute top-2 right-2 h-7 w-7 rounded-full shadow-md bg-rose-600 hover:bg-rose-700 text-white"
-                    >
-                      <X className="h-3.5 w-3.5" />
-                    </Button>
+            <TabsContent value="media" className="mt-0 outline-none">
+              <div className="grid sm:grid-cols-3 gap-6 h-160">
+                {/* COVER */}
+                <div className="flex flex-col h-full">
+                  <div className="relative flex-1 border-2 border-dashed border-slate-300 hover:border-rose-500 rounded-xl bg-slate-50/80 hover:bg-rose-50/30 flex items-center justify-center p-2 text-center transition-all group overflow-hidden">
+                    {coverPreview ? (
+                      <div className="relative w-full h-full flex items-center justify-center">
+                        <img
+                          src={coverPreview}
+                          alt="Cover Preview"
+                          className="w-full h-full object-contain rounded-lg shadow-sm"
+                        />
+                        <div className="absolute top-3 right-3 flex items-center gap-2 bg-white/90 p-1.5 rounded-lg shadow-md backdrop-blur-sm border border-slate-200/50">
+                          <label className="cursor-pointer bg-slate-100 hover:bg-slate-200 text-slate-700 px-3 py-1.5 rounded text-xs font-semibold shadow-sm transition-colors">
+                            Replace
+                            <input
+                              type="file"
+                              accept="image/*"
+                              onChange={handleCoverChange}
+                              disabled={isSubmitting}
+                              className="hidden"
+                            />
+                          </label>
+                          <Button
+                            type="button"
+                            variant="destructive"
+                            size="sm"
+                            onClick={() => {
+                              setCoverFile(null);
+                              setCoverPreview(null);
+                            }}
+                            disabled={isSubmitting}
+                            className="h-7 px-3 text-xs"
+                          >
+                            Remove
+                          </Button>
+                        </div>
+                      </div>
+                    ) : (
+                      <label className="cursor-pointer flex flex-col items-center justify-center w-full h-full py-4">
+                        <div className="p-3 bg-white rounded-full shadow-xs mb-2 border border-slate-200 group-hover:border-rose-200 transition-colors">
+                          <ImageIcon className="h-6 w-6 text-slate-500 group-hover:text-rose-600 transition-colors" />
+                        </div>
+                        <Label className="text-base font-semibold text-slate-800 group-hover:text-rose-600 transition-colors">
+                          Upload Gambar Cover
+                        </Label>
+                        <span className="text-[10px] font-medium text-slate-400 mt-0.5">
+                          PNG, JPG, WEBP (Boleh Kosong)
+                        </span>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={handleCoverChange}
+                          disabled={isSubmitting}
+                          className="hidden"
+                        />
+                      </label>
+                    )}
                   </div>
-                ) : (
-                  <label className="cursor-pointer flex flex-col items-center justify-center w-full h-full py-4">
-                    <div className="p-3 bg-white rounded-full shadow-xs mb-2 border border-slate-200 group-hover:border-rose-200 transition-colors">
-                      <ImageIcon className="h-6 w-6 text-slate-500 group-hover:text-rose-600 transition-colors" />
+                </div>
+
+                {/* VIDEO */}
+                <div className="flex flex-col col-span-2 h-full">
+                  <div className="relative flex-1 border-2 border-dashed border-slate-300 hover:border-rose-500 rounded-xl bg-slate-50/80 hover:bg-rose-50/30 flex items-center justify-center p-2 transition-all group overflow-hidden">
+                    {videoPreview ? (
+                      <div className="relative w-full h-full flex items-center justify-center bg-black/5 rounded-lg">
+                        <video
+                          src={videoPreview}
+                          controls
+                          className="w-full h-full object-contain rounded-lg shadow-sm"
+                        />
+                        <div className="absolute top-3 right-3 flex items-center gap-2 bg-white/90 p-1.5 rounded-lg shadow-md backdrop-blur-sm border border-slate-200/50">
+                          <label className="cursor-pointer bg-slate-100 hover:bg-slate-200 text-slate-700 px-3 py-1.5 rounded text-xs font-semibold shadow-sm transition-colors">
+                            Replace
+                            <input
+                              type="file"
+                              accept="video/*"
+                              onChange={handleVideoChange}
+                              disabled={isSubmitting}
+                              className="hidden"
+                            />
+                          </label>
+                          <Button
+                            type="button"
+                            variant="destructive"
+                            size="sm"
+                            onClick={() => {
+                              setVideoFile(null);
+                              if (videoPreview)
+                                URL.revokeObjectURL(videoPreview);
+                              setVideoPreview(null);
+                            }}
+                            disabled={isSubmitting}
+                            className="h-7 px-3 text-xs"
+                          >
+                            Remove
+                          </Button>
+                        </div>
+                      </div>
+                    ) : (
+                      <Label className="cursor-pointer flex flex-col items-center justify-center w-full h-full">
+                        <Film className="h-8 w-8 mb-3 text-slate-500 group-hover:text-rose-600 transition-colors" />
+                        <Label className="text-base font-medium text-slate-800 group-hover:text-rose-600 transition-colors truncate max-w-xs px-4 text-center">
+                          Pilih File Video
+                        </Label>
+                        <span className="text-[10px] text-slate-400 font-medium mt-1">
+                          MP4, MKV, AVI, WebM (Boleh Kosong)
+                        </span>
+                        <input
+                          type="file"
+                          accept="video/*"
+                          onChange={handleVideoChange}
+                          disabled={isSubmitting}
+                          className="hidden"
+                        />
+                      </Label>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </TabsContent>
+
+            <TabsContent
+              value="metadata"
+              className="mt-0 outline-none space-y-4"
+            >
+              <Card className="bg-white border-slate-200 shadow-sm rounded-xl px-0">
+                <CardContent className="p-6">
+                  <div className="grid grid-cols-5 gap-3">
+                    {/* CODE */}
+                    <div className="space-y-1.5">
+                      <Label
+                        htmlFor="code"
+                        className="text-sm font-semibold text-slate-700"
+                        required
+                      >
+                        Code
+                      </Label>
+                      <Input
+                        id="code"
+                        type="text"
+                        name="code"
+                        value={formData.code}
+                        onChange={handleInputChange}
+                        placeholder="misal: FLM-001"
+                        required
+                        disabled={isSubmitting}
+                        className="bg-slate-50/50"
+                      />
                     </div>
 
-                    <Label
-                      className="text-base font-semibold text-slate-800 group-hover:text-rose-600 transition-colors"
-                      required
-                    >
-                      Upload Gambar Cover
-                    </Label>
+                    {/* TITLE */}
+                    <div className="space-y-1.5 col-span-3">
+                      <Label
+                        htmlFor="title"
+                        className="text-sm font-semibold text-slate-700"
+                      >
+                        Title
+                      </Label>
+                      <Input
+                        id="title"
+                        type="text"
+                        name="title"
+                        value={formData.title}
+                        onChange={handleInputChange}
+                        placeholder="Judul Film"
+                        disabled={isSubmitting}
+                        className="bg-slate-50/50"
+                      />
+                    </div>
 
-                    <span className="text-[10px] font-medium text-slate-400 mt-0.5">
-                      PNG, JPG, WEBP
-                    </span>
+                    {/* Status */}
+                    <div className="space-y-1.5">
+                      <Label
+                        htmlFor="status"
+                        className="text-sm font-semibold text-slate-700"
+                      >
+                        Status
+                      </Label>
+                      <Select
+                        value={formData.status}
+                        onValueChange={(val) =>
+                          setFormData((prev) => ({
+                            ...prev,
+                            status: val || "",
+                          }))
+                        }
+                        disabled={isSubmitting}
+                      >
+                        <SelectTrigger className="bg-slate-50/50 w-full">
+                          <SelectValue placeholder="Pilih status film" />
+                        </SelectTrigger>
+                        <SelectContent alignItemWithTrigger={false}>
+                          {statusOptions.map((opt) => (
+                            <SelectItem key={opt.id} value={opt.id}>
+                              {opt.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
 
-                    <input
-                      id="cover-input"
-                      type="file"
-                      accept="image/*"
-                      onChange={handleCoverChange}
-                      required
-                      disabled={isSubmitting}
-                      className="hidden"
-                    />
-                  </label>
-                )}
-              </div>
-            </div>
-
-            {/* VIDEO */}
-            <div className="h-28 flex flex-col">
-              <div className="flex-1 border-2 border-dashed border-slate-300 hover:border-rose-500 rounded-xl bg-slate-50/80 hover:bg-rose-50/30 flex items-center justify-center p-2 transition-all group">
-                <Label className="cursor-pointer flex flex-col items-center justify-center w-full">
-                  <Film className="h-5 w-5 mb-1 text-slate-500 group-hover:text-rose-600 transition-colors" />
-                  <Label
-                    className="text-base font-medium text-slate-800 group-hover:text-rose-600 transition-colors truncate max-w-50"
-                    required
-                  >
-                    {videoFile ? videoFile.name : "Pilih File Video"}
-                  </Label>
-                  <span className="text-[10px] text-slate-400 font-medium">
-                    {videoFile
-                      ? `${(videoFile.size / (1024 * 1024)).toFixed(1)} MB`
-                      : "MP4, MKV, AVI, WebM"}
-                  </span>
-
-                  <input
-                    id="video-input"
-                    type="file"
-                    accept="video/*"
-                    onChange={handleVideoChange}
-                    disabled={isSubmitting}
-                    className="hidden"
-                  />
-                </Label>
-              </div>
-            </div>
-          </div>
-
-          {/* RIGHT COLUMN */}
-          <div className="col-span-8 flex flex-col gap-3 h-full">
-            {/* Metadata info */}
-            <Card className="flex flex-col justify-between bg-white border-slate-300 shadow-xs rounded-xl">
-              <CardContent className="p-4 pt-4 flex-1 flex flex-col justify-between">
-                <div className="grid grid-cols-2 gap-3.5">
-                  {/* CODE */}
-                  <div className="space-y-1">
-                    <Label
-                      htmlFor="code"
-                      className="text-base font-medium text-slate-700"
-                      required
-                    >
-                      Code
-                    </Label>
-                    <Input
-                      id="code"
-                      type="text"
-                      name="code"
-                      value={formData.code}
-                      onChange={handleInputChange}
-                      placeholder="misal: FLM-001"
-                      required
-                      disabled={isSubmitting}
-                      className="h-8 text-base bg-slate-50/50 border-slate-300 focus:bg-white text-slate-900 placeholder:text-slate-400"
-                    />
+                    {/* Sinopsis */}
+                    <div className="space-y-1.5 col-span-full">
+                      <Label
+                        htmlFor="overview"
+                        className="text-sm font-semibold text-slate-700"
+                      >
+                        Sinopsis
+                      </Label>
+                      <Textarea
+                        id="overview"
+                        name="overview"
+                        value={formData.overview}
+                        onChange={handleInputChange}
+                        placeholder="Ringkasan cerita film"
+                        disabled={isSubmitting}
+                        className="h-24 bg-slate-50/50"
+                      />
+                    </div>
                   </div>
+                </CardContent>
+              </Card>
 
-                  {/* TITLE */}
-                  <div className="space-y-1">
-                    <Label
-                      htmlFor="title"
-                      className="text-base font-medium text-slate-700"
-                      required
-                    >
-                      Title
-                    </Label>
-                    <Input
-                      id="title"
-                      type="text"
-                      name="title"
-                      value={formData.title}
-                      onChange={handleInputChange}
-                      placeholder="Judul Film"
-                      required
-                      disabled={isSubmitting}
-                      className="h-8 text-base bg-slate-50/50 border-slate-300 focus:bg-white text-slate-900 placeholder:text-slate-400"
-                    />
-                  </div>
+              <Card className="bg-white border-slate-200 shadow-sm rounded-xl px-0">
+                <CardContent className="p-6">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {/* DIRECTOR */}
+                    <div className="space-y-1.5">
+                      <Label className="text-sm font-semibold text-slate-700">
+                        Director
+                      </Label>
+                      <Input
+                        name="director"
+                        value={formData.director}
+                        onChange={handleInputChange}
+                        placeholder="Pisahkan dengan koma"
+                        className="bg-slate-50/50"
+                      />
+                    </div>
 
-                  {/* Overview */}
-                  <div className="space-y-1 col-span-2">
-                    <Label
-                      htmlFor="overview"
-                      className="text-base font-medium text-slate-700"
-                    >
-                      Overview
-                    </Label>
-                    <Textarea
-                      id="overview"
-                      name="overview"
-                      value={formData.overview}
-                      onChange={handleInputChange}
-                      placeholder="Overview"
-                      required
-                      disabled={isSubmitting}
-                      className="h-30 text-base bg-slate-50/50 border-slate-300 focus:bg-white text-slate-900 placeholder:text-slate-400"
-                    />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-            {/* Metadata detail */}
-            <Card className="col-span-8 flex flex-col justify-betweenbg-white border-slate-300 shadow-xs rounded-xl">
-              <CardContent className="p-4 pt-4 flex-1 flex flex-col justify-between">
-                <div className="grid grid-cols-2 gap-3.5">
-                  {/* DIRECTOR */}
-                  <div className="space-y-1">
-                    <Label
-                      htmlFor="director"
-                      className="text-base font-medium text-slate-700"
-                    >
-                      Director
-                    </Label>
-                    <Input
-                      id="director"
-                      type="text"
-                      name="director"
-                      value={formData.director}
-                      onChange={handleInputChange}
-                      placeholder="Sutradara"
-                      disabled={isSubmitting}
-                      className="h-8 text-base bg-slate-50/50 border-slate-300 focus:bg-white text-slate-900 placeholder:text-slate-400"
-                    />
-                  </div>
+                    {/* STUDIO */}
+                    <div className="space-y-1.5">
+                      <Label className="text-sm font-semibold text-slate-700">
+                        Studio
+                      </Label>
+                      <Input
+                        name="studio"
+                        value={formData.studio}
+                        onChange={handleInputChange}
+                        placeholder="Pisahkan dengan koma"
+                        className="bg-slate-50/50"
+                      />
+                    </div>
 
-                  {/* STUDIO */}
-                  <div className="space-y-1">
-                    <Label
-                      htmlFor="studio"
-                      className="text-base font-medium text-slate-700"
-                    >
-                      Studio
-                    </Label>
-                    <Input
-                      id="studio"
-                      type="text"
-                      name="studio"
-                      value={formData.studio}
-                      onChange={handleInputChange}
-                      placeholder="Studio Produksi"
-                      disabled={isSubmitting}
-                      className="h-8 text-base bg-slate-50/50 border-slate-300 focus:bg-white text-slate-900 placeholder:text-slate-400"
-                    />
-                  </div>
+                    {/* LABEL */}
+                    <div className="space-y-1.5">
+                      <Label className="text-sm font-semibold text-slate-700">
+                        Label
+                      </Label>
+                      <Input
+                        name="label"
+                        value={formData.label}
+                        onChange={handleInputChange}
+                        placeholder="Pisahkan dengan koma"
+                        className="bg-slate-50/50"
+                      />
+                    </div>
 
-                  {/* LABEL */}
-                  <div className="space-y-1">
-                    <Label
-                      htmlFor="label"
-                      className="text-base font-medium text-slate-700"
-                    >
-                      Label
-                    </Label>
-                    <Input
-                      id="label"
-                      type="text"
-                      name="label"
-                      value={formData.label}
-                      onChange={handleInputChange}
-                      placeholder="Label / Distributor"
-                      disabled={isSubmitting}
-                      className="h-8 text-base bg-slate-50/50 border-slate-300 focus:bg-white text-slate-900 placeholder:text-slate-400"
-                    />
-                  </div>
+                    {/* SERIES */}
+                    <div className="space-y-1.5">
+                      <Label className="text-sm font-semibold text-slate-700">
+                        Series
+                      </Label>
+                      <Input
+                        name="series"
+                        value={formData.series}
+                        onChange={handleInputChange}
+                        placeholder="Pisahkan dengan koma"
+                        className="bg-slate-50/50"
+                      />
+                    </div>
 
-                  {/* SERIES */}
-                  <div className="space-y-1">
-                    <Label
-                      htmlFor="series"
-                      className="text-base font-medium text-slate-700"
-                    >
-                      Series
-                    </Label>
-                    <Input
-                      id="series"
-                      type="text"
-                      name="series"
-                      value={formData.series}
-                      onChange={handleInputChange}
-                      placeholder="Waralaba / Seri"
-                      disabled={isSubmitting}
-                      className="h-8 text-base bg-slate-50/50 border-slate-300 focus:bg-white text-slate-900 placeholder:text-slate-400"
-                    />
-                  </div>
+                    {/* CAST */}
+                    <div className="space-y-1.5 sm:col-span-2">
+                      <Label className="text-sm font-semibold text-slate-700">
+                        Cast
+                      </Label>
+                      <Input
+                        name="cast"
+                        value={formData.cast}
+                        onChange={handleInputChange}
+                        placeholder="Pisahkan dengan koma"
+                        className="bg-slate-50/50"
+                      />
+                    </div>
 
-                  {/* CAST */}
-                  <div className="col-span-2 space-y-1">
-                    <Label
-                      htmlFor="cast"
-                      className="text-base font-medium text-slate-700"
-                    >
-                      Cast
-                    </Label>
-                    <Input
-                      id="cast"
-                      type="text"
-                      name="cast"
-                      value={formData.cast}
-                      onChange={handleInputChange}
-                      placeholder="Daftar pemeran (pisahkan koma)"
-                      disabled={isSubmitting}
-                      className="h-8 text-base bg-slate-50/50 border-slate-300 focus:bg-white text-slate-900 placeholder:text-slate-400"
-                    />
+                    {/* GENRES */}
+                    <div className="space-y-1.5 sm:col-span-2">
+                      <Label className="text-sm font-semibold text-slate-700">
+                        Genre / Tags
+                      </Label>
+                      <Input
+                        name="genres"
+                        value={formData.genres}
+                        onChange={handleInputChange}
+                        placeholder="Pisahkan dengan koma"
+                        className="bg-slate-50/50"
+                      />
+                    </div>
                   </div>
-
-                  {/* GENRE */}
-                  <div className="col-span-2 space-y-1">
-                    <Label
-                      htmlFor="genres"
-                      className="text-base font-medium text-slate-700"
-                    >
-                      Genre
-                    </Label>
-                    <Input
-                      id="genres"
-                      type="text"
-                      name="genres"
-                      value={formData.genres}
-                      onChange={handleInputChange}
-                      placeholder="Action, Sci-Fi, Drama (pisahkan koma)"
-                      disabled={isSubmitting}
-                      className="h-8 text-base bg-slate-50/50 border-slate-300 focus:bg-white text-slate-900 placeholder:text-slate-400"
-                    />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
+          </Tabs>
         </form>
       </div>
     </div>
