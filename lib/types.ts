@@ -15,6 +15,48 @@ export interface Movie {
   isFavorite: boolean;
 }
 
+// Detail Movie Page
+export interface MovieDetailBackend {
+  id: string;
+  code: string;
+  title: string;
+  originalTitle: string | null;
+  overview: string | null;
+  releaseDate: string | null;
+  runtimeMinutes: number | null;
+  language: string | null;
+  country: string | null;
+  tmdbId: number | null;
+  imdbId: string | null;
+  createdAt: string;
+  updatedAt: string;
+  isFavorite: boolean;
+  studios: { id: string; name: string }[];
+  series: { id: string; name: string }[];
+  labels: { id: string; name: string }[];
+  genres: { id: string; name: string }[];
+  directors: { id: string; name: string }[];
+  casts: { id: string; name: string }[];
+  images: {
+    id: string;
+    movie_id: string;
+    image_type: string;
+    file_path: string;
+  }[];
+  files: {
+    id: string;
+    movie_id: string;
+    file_path: string;
+    resolution: string | null;
+    video_codec: string | null;
+    audio_codec: string | null;
+    duration_seconds: number | null;
+    file_size: number | null;
+    checksum: string | null;
+    created_at: string;
+  }[];
+}
+
 // Setting Page
 export type SettingsTabType = "common_code" | "system_logs" | "other";
 export interface CodeType {

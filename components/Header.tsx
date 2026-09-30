@@ -59,15 +59,15 @@ export const Header: React.FC<HeaderProps> = ({
     if (right !== undefined && right !== true) return right;
 
     return (
-      <Button
-        size="lg"
-        className="rounded-xl bg-rose-600 hover:bg-rose-700 text-white shadow-md shadow-rose-600/20"
-      >
-        <Link href="/upload" className="flex items-center gap-2">
+      <Link href="/upload" className="flex items-center gap-2">
+        <Button
+          size="lg"
+          className="rounded-xl bg-rose-600 hover:bg-rose-700 text-white shadow-md shadow-rose-600/20"
+        >
           <Upload className="w-4 h-4" />
           <span className="hidden sm:inline">Upload</span>
-        </Link>
-      </Button>
+        </Button>
+      </Link>
     );
   };
 
