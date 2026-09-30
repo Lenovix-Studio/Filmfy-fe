@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { Code2, SlidersHorizontal } from "lucide-react";
+import { Code2, SlidersHorizontal, Activity } from "lucide-react";
 import { SettingsTabType } from "@/lib/types";
 
 export interface SettingsTabsProps {
@@ -21,6 +21,18 @@ export const SettingsTabs: React.FC<SettingsTabsProps> = ({
     >
       <button
         type="button"
+        onClick={() => onTabChange("system_logs")}
+        className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all ${
+          activeTab === "system_logs"
+            ? "bg-white text-rose-600 shadow-sm"
+            : "text-slate-600 hover:text-slate-900 hover:bg-slate-200/50"
+        }`}
+      >
+        <Activity className="w-4 h-4" />
+        <span>System Logs</span>
+      </button>
+      <button
+        type="button"
         onClick={() => onTabChange("common_code")}
         className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all ${
           activeTab === "common_code"
@@ -31,7 +43,6 @@ export const SettingsTabs: React.FC<SettingsTabsProps> = ({
         <Code2 className="w-4 h-4" />
         <span>Common Code</span>
       </button>
-
       <button
         type="button"
         onClick={() => onTabChange("other")}

@@ -13,6 +13,7 @@ import OtherSettings from "./components/OtherSettings";
 import CommonCodeSettings from "./components/CommonCodeSettings";
 import SettingsTabs from "./components/SettingsTabs";
 import DeleteConfirmDialog from "./components/DeleteConfirmDialog";
+import SystemLogs from "./components/SystemLogs";
 
 const API_BASE = `${BACKEND_URL}/common-codes`;
 
@@ -24,7 +25,7 @@ export default function SettingsClient({ initialTypes }: SettingsClientProps) {
   const [types, setTypes] = useState<CodeType[]>(initialTypes);
   const [details, setDetails] = useState<CodeDetailType[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState<SettingsTabType>("common_code");
+  const [activeTab, setActiveTab] = useState<SettingsTabType>("system_logs");
   const [resetDialog, setResetDialog] = useState(false);
   const [selectedType, setSelectedType] = useState<string>(
     initialTypes[0]?.code || "",
@@ -254,6 +255,8 @@ export default function SettingsClient({ initialTypes }: SettingsClientProps) {
             onDeleteDetail={(id) => setDeleteDetailDialog({ isOpen: true, id })}
           />
         )}
+
+        {activeTab === "system_logs" && <SystemLogs />}
 
         {activeTab === "other" && (
           <OtherSettings onResetData={() => setResetDialog(true)} />

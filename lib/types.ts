@@ -16,7 +16,7 @@ export interface Movie {
 }
 
 // Setting Page
-export type SettingsTabType = "common_code" | "other";
+export type SettingsTabType = "common_code" | "system_logs" | "other";
 export interface CodeType {
   id: string;
   code: string;
@@ -31,4 +31,12 @@ export interface CodeDetailType {
   label: string;
   order: number;
   is_active: boolean;
+}
+export type LogLevel = "INFO" | "WARN" | "ERROR";
+export interface LogEntry {
+  id: string;
+  timestamp: string;
+  level: LogLevel;
+  message: string;
+  source: string;
 }
