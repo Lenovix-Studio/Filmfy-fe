@@ -52,6 +52,10 @@ export default function UploadClient({ statusOptions }: UploadClientProps) {
     genres: "",
     cast: "",
     series: "",
+    country: "",
+    language: "",
+    release_date: "",
+    runtime_minutes: 0,
   });
 
   useEffect(() => {
@@ -82,6 +86,16 @@ export default function UploadClient({ statusOptions }: UploadClientProps) {
     if (file) {
       setVideoFile(file);
       setVideoPreview(URL.createObjectURL(file));
+
+      // Extract duration
+      const video = document.createElement("video");
+      video.preload = "metadata";
+      video.onloadedmetadata = () => {
+        window.URL.revokeObjectURL(video.src);
+        const minutes = Math.round(video.duration / 60);
+        setFormData((prev) => ({ ...prev, runtime_minutes: minutes }));
+      };
+      video.src = URL.createObjectURL(file);
     }
   };
 
@@ -110,9 +124,26 @@ export default function UploadClient({ statusOptions }: UploadClientProps) {
       genres: "Sci-Fi, Action, Thriller",
       cast: "Leonardo DiCaprio, Marion Cotillard, Tom Hardy, Ellen Page",
       series: "Nolan Collection",
+      country: "USA",
+      language: "English",
+      release_date: "2010-07-16",
+      runtime_minutes: 0,
     });
     setActiveTab("metadata");
     toast.success("Test data berhasil dimuat");
+  };
+
+  const getVideoRuntimeMinutes = (file: File): Promise<number> => {
+    return new Promise((resolve) => {
+      const video = document.createElement("video");
+      video.preload = "metadata";
+      video.onloadedmetadata = () => {
+        window.URL.revokeObjectURL(video.src);
+        resolve(Math.round(video.duration / 60));
+      };
+      video.onerror = () => resolve(0);
+      video.src = URL.createObjectURL(file);
+    });
   };
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
@@ -138,6 +169,15 @@ export default function UploadClient({ statusOptions }: UploadClientProps) {
       data.append("title", formData.title.trim() || formData.code.trim());
       data.append("overview", formData.overview.trim());
       if (formData.status) data.append("status", formData.status);
+      if (formData.country) data.append("country", formData.country);
+      if (formData.language) data.append("language", formData.language);
+      if (formData.release_date) data.append("release_date", formData.release_date);
+
+      const runtimeMinutes = videoFile
+        ? await getVideoRuntimeMinutes(videoFile)
+        : formData.runtime_minutes;
+      if (runtimeMinutes > 0)
+        data.append("runtime_minutes", runtimeMinutes.toString());
 
       const directorArray = parseCommaSeparated(formData.director);
       directorArray.forEach((d) => data.append("director", d));
@@ -186,6 +226,10 @@ export default function UploadClient({ statusOptions }: UploadClientProps) {
         genres: "",
         cast: "",
         series: "",
+        country: "",
+        language: "",
+        release_date: "",
+        runtime_minutes: 0,
       });
       setCoverFile(null);
       setCoverPreview(null);
@@ -541,6 +585,45 @@ export default function UploadClient({ statusOptions }: UploadClientProps) {
                         value={formData.label}
                         onChange={handleInputChange}
                         placeholder="Pisahkan dengan koma"
+                        className="bg-slate-50/50"
+                      />
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <Label className="text-sm font-semibold text-slate-700">
+                        Country
+                      </Label>
+                      <Input
+                        name="country"
+                        value={formData.country}
+                        onChange={handleInputChange}
+                        placeholder="Contoh: USA, Indonesia"
+                        className="bg-slate-50/50"
+                      />
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <Label className="text-sm font-semibold text-slate-700">
+                        Language
+                      </Label>
+                      <Input
+                        name="language"
+                        value={formData.language}
+                        onChange={handleInputChange}
+                        placeholder="Contoh: English, Indonesian"
+                        className="bg-slate-50/50"
+                      />
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <Label className="text-sm font-semibold text-slate-700">
+                        Release Date
+                      </Label>
+                      <Input
+                        name="release_date"
+                        type="date"
+                        value={formData.release_date}
+                        onChange={handleInputChange}
                         className="bg-slate-50/50"
                       />
                     </div>

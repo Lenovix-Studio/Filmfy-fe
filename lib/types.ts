@@ -97,6 +97,10 @@ export interface FilmFormData {
   genres: string;
   cast: string;
   series: string;
+  country: string;
+  language: string;
+  release_date: string;
+  runtime_minutes: number;
 }
 
 // Favorites Page
