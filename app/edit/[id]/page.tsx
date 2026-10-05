@@ -1,6 +1,9 @@
+import { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { BACKEND_URL } from "@/lib/constant";
 import EditMovieClient from "./EditMovieClient";
+
+export const dynamic = "force-dynamic";
 
 async function getMovieDetail(id: string) {
   try {
@@ -18,6 +21,26 @@ async function getMovieDetail(id: string) {
     console.error("Error fetching movie detail:", error);
     return null;
   }
+}
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}): Promise<Metadata> {
+  const { id } = await params;
+  const movie = await getMovieDetail(id);
+
+  if (!movie) {
+    return {
+      title: "Film Tidak Ditemukan",
+    };
+  }
+
+  return {
+    title: `Edit ${movie.code} - ${movie.title}`,
+    description: `Edit detail film ${movie.title}`,
+  };
 }
 
 export default async function EditMoviePage({

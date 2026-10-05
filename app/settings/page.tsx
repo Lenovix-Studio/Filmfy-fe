@@ -5,7 +5,8 @@ import { BACKEND_URL } from "@/lib/constant";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "Setting",
+  title: "Pengaturan",
+  description: "Konfigurasi sistem dan manajemen data",
 };
 
 export default async function SettingsPage() {

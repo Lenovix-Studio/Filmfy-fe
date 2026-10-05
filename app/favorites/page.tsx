@@ -1,8 +1,14 @@
+import { Metadata } from "next";
 import { BACKEND_URL } from "@/lib/constant";
 import { FavoriteMovie } from "@/lib/types";
 import FavoritesClient from "./FavoritesClient";
 
 export const dynamic = "force-dynamic";
+
+export const metadata: Metadata = {
+  title: "Favorit",
+  description: "Daftar film favorit Anda",
+};
 
 async function getFavorites(): Promise<FavoriteMovie[]> {
   try {

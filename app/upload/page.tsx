@@ -1,7 +1,13 @@
+import { Metadata } from "next";
 import { BACKEND_URL } from "@/lib/constant";
 import UploadClient from "./UploadClient";
 
 export const dynamic = "force-dynamic";
+
+export const metadata: Metadata = {
+  title: "Upload Film",
+  description: "Upload film baru dengan cover, video, dan metadata lengkap",
+};
 
 async function getStatusOptions(): Promise<{ id: string; label: string }[]> {
   try {

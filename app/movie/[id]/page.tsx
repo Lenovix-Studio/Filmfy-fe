@@ -4,6 +4,9 @@ import { BACKEND_URL, STORAGE_URL } from "@/lib/constant";
 import { MovieDetailBackend } from "@/lib/types";
 import MovieDetailClient from "./MovieDetailClient";
 import Header from "@/components/Header";
+import { Metadata } from "next";
+
+export const dynamic = "force-dynamic";
 
 interface MovieDetailProps {
   params: Promise<{
@@ -27,6 +30,24 @@ async function getMovieDetail(id: string): Promise<MovieDetailBackend | null> {
     console.error("Error fetching movie detail:", error);
     return null;
   }
+}
+
+export async function generateMetadata({
+  params,
+}: MovieDetailProps): Promise<Metadata> {
+  const { id } = await params;
+  const movie = await getMovieDetail(id);
+
+  if (!movie) {
+    return {
+      title: "Film Tidak Ditemukan",
+    };
+  }
+
+  return {
+    title: `${movie.code} - ${movie.title}`,
+    description: movie.overview || `Detail film ${movie.title}`,
+  };
 }
 
 export default async function MovieDetailPage({ params }: MovieDetailProps) {
@@ -284,28 +305,28 @@ export default async function MovieDetailPage({ params }: MovieDetailProps) {
           {/* SCREENSHOTS SECTION */}
           {movie.images?.filter((img) => img.image_type === "screenshot")
             .length > 0 && (
-            <section className="space-y-4">
-              <h3 className="text-xl font-semibold text-white">Screenshots</h3>
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                {movie.images
-                  .filter((img) => img.image_type === "screenshot")
-                  .map((img) => (
-                    <div
-                      key={img.id}
-                      className="relative aspect-video rounded-xl overflow-hidden border border-slate-800 bg-slate-900 shadow-xl"
-                    >
-                      <Image
-                        src={formatMediaUrl(img.file_path)}
-                        alt="Screenshot"
-                        fill
-                        unoptimized
-                        className="object-cover hover:scale-105 transition-transform duration-500"
-                      />
-                    </div>
-                  ))}
-              </div>
-            </section>
-          )}
+              <section className="space-y-4">
+                <h3 className="text-xl font-semibold text-white">Screenshots</h3>
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                  {movie.images
+                    .filter((img) => img.image_type === "screenshot")
+                    .map((img) => (
+                      <div
+                        key={img.id}
+                        className="relative aspect-video rounded-xl overflow-hidden border border-slate-800 bg-slate-900 shadow-xl"
+                      >
+                        <Image
+                          src={formatMediaUrl(img.file_path)}
+                          alt="Screenshot"
+                          fill
+                          unoptimized
+                          className="object-cover hover:scale-105 transition-transform duration-500"
+                        />
+                      </div>
+                    ))}
+                </div>
+              </section>
+            )}
         </div>
       </main>
     </>
