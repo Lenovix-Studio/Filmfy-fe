@@ -13,10 +13,11 @@ import {
   Settings,
   Sparkles,
   FileText,
+  FlaskConical,
 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import Link from "next/link";
-import { BACKEND_URL } from "@/lib/constant";
+import { BACKEND_URL, ENV } from "@/lib/constant";
 import {
   Select,
   SelectContent,
@@ -39,7 +40,7 @@ export default function UploadClient({ statusOptions }: UploadClientProps) {
   const [videoPreview, setVideoPreview] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [activeTab, setActiveTab] = useState<string>("media");
-
+  const [mounted, setMounted] = useState(false);
   const [formData, setFormData] = useState<FilmFormData>({
     code: "",
     title: "",
@@ -89,6 +90,29 @@ export default function UploadClient({ statusOptions }: UploadClientProps) {
       .split(",")
       .map((v) => v.trim())
       .filter((v) => v.length > 0);
+  };
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  const isDev = ENV;
+
+  const handleLoadTestData = () => {
+    setFormData({
+      code: "TST-" + Math.random().toString(36).substr(2, 9).toUpperCase(),
+      title: "Test Film - Inception",
+      status: statusOptions[0]?.id || "",
+      overview: "This is a test film about dreams within dreams. A skilled thief who specializes in extraction, stealing company secrets from people's subconscious during the dream state, is given the inverse task of planting an idea into the mind of a C.E.O.",
+      director: "Christopher Nolan, Denis Villeneuve",
+      studio: "Warner Bros, Universal Pictures",
+      label: "Legendary Pictures, Syncopy",
+      genres: "Sci-Fi, Action, Thriller",
+      cast: "Leonardo DiCaprio, Marion Cotillard, Tom Hardy, Ellen Page",
+      series: "Nolan Collection",
+    });
+    setActiveTab("metadata");
+    toast.success("Test data berhasil dimuat");
   };
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
@@ -186,6 +210,20 @@ export default function UploadClient({ statusOptions }: UploadClientProps) {
         center={<h1>Upload Film</h1>}
         right={
           <div className="flex items-center gap-2">
+            {mounted && isDev && (
+              <Button
+                type="button"
+                variant="outline"
+                size="lg"
+                className="rounded-xl border-blue-200 hover:bg-blue-50 text-blue-700 shadow-sm flex items-center gap-2"
+                disabled={isSubmitting}
+                onClick={handleLoadTestData}
+              >
+                <FlaskConical className="w-4 h-4 text-blue-600" />
+                <span className="hidden sm:inline">Test Data</span>
+              </Button>
+            )}
+
             <Button
               type="button"
               variant="outline"

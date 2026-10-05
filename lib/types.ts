@@ -4,6 +4,7 @@ export interface ApiMovie {
   code: string;
   title: string;
   coverPath: string | null;
+  status?: string;
 }
 export interface Movie {
   id: string;
@@ -22,6 +23,7 @@ export interface MovieDetailBackend {
   title: string;
   originalTitle: string | null;
   overview: string | null;
+  status?: string | null;
   releaseDate: string | null;
   runtimeMinutes: number | null;
   language: string | null;

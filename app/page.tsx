@@ -27,7 +27,7 @@ export default async function Home() {
             posterUrl: cleanCoverPath
               ? `${BACKEND_URL}/storage/${cleanCoverPath}`
               : "/placeholder-poster.webp",
-            status: "DELETED",
+            status: item.status || "DELETED",
             isFavorite: false,
           };
         });
