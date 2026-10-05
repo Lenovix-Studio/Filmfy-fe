@@ -27,6 +27,7 @@ export default function SettingsClient({ initialTypes }: SettingsClientProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<SettingsTabType>("system_logs");
   const [resetDialog, setResetDialog] = useState(false);
+  const [clearFavDialog, setClearFavDialog] = useState(false);
   const [selectedType, setSelectedType] = useState<string>(
     initialTypes[0]?.code || "",
   );
@@ -209,6 +210,20 @@ export default function SettingsClient({ initialTypes }: SettingsClientProps) {
     }
   };
 
+  const confirmClearFavorites = async () => {
+    try {
+      setIsLoading(true);
+      const res = await axios.delete(`${BACKEND_URL}/movies/favorites`);
+      toast.success(res.data?.message || "Semua favorit berhasil dihapus");
+    } catch (error: any) {
+      console.error("Clear favorites error:", error);
+      toast.error(error.response?.data?.message || "Gagal menghapus favorit");
+    } finally {
+      setIsLoading(false);
+      setClearFavDialog(false);
+    }
+  };
+
   return (
     <>
       <Header
@@ -259,7 +274,10 @@ export default function SettingsClient({ initialTypes }: SettingsClientProps) {
         {activeTab === "system_logs" && <SystemLogs />}
 
         {activeTab === "other" && (
-          <OtherSettings onResetData={() => setResetDialog(true)} />
+          <OtherSettings
+            onResetData={() => setResetDialog(true)}
+            onClearFavorites={() => setClearFavDialog(true)}
+          />
         )}
       </main>
 
@@ -318,6 +336,15 @@ export default function SettingsClient({ initialTypes }: SettingsClientProps) {
         title="Reset Semua Data?"
         description="Tindakan ini akan menghapus semua daftar film dan file penyimpanannya secara permanen. Apakah Anda yakin?"
         onConfirm={confirmResetData}
+      />
+
+      {/* CLEAR ALL FAVORITES CONFIRMATION DIALOG */}
+      <DeleteConfirmDialog
+        isOpen={clearFavDialog}
+        onOpenChange={setClearFavDialog}
+        title="Hapus Semua Favorit?"
+        description="Tindakan ini akan menghapus semua film dari daftar favorit. Film tidak akan dihapus dari database."
+        onConfirm={confirmClearFavorites}
       />
     </>
   );

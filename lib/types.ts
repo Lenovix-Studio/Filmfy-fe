@@ -96,3 +96,13 @@ export interface FilmFormData {
   cast: string;
   series: string;
 }
+
+// Favorites Page
+export interface FavoriteMovie {
+  id: string;
+  code: string;
+  title: string;
+  posterUrl: string;
+  addedAt: string;
+  isFavorite: boolean;
+}
