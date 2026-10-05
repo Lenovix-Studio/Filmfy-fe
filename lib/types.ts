@@ -82,3 +82,17 @@ export interface LogEntry {
   message: string;
   source: string;
 }
+
+// Upload Page
+export interface FilmFormData {
+  code: string;
+  title: string;
+  status: string;
+  overview: string;
+  director: string;
+  studio: string;
+  label: string;
+  genres: string;
+  cast: string;
+  series: string;
+}
