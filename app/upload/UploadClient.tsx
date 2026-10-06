@@ -19,6 +19,14 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import Link from "next/link";
 import { BACKEND_URL, ENV } from "@/lib/constant";
 import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -40,6 +48,8 @@ export default function UploadClient({ statusOptions }: UploadClientProps) {
   const [videoPreview, setVideoPreview] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [activeTab, setActiveTab] = useState<string>("media");
+  const [extractLink, setExtractLink] = useState("");
+  const [extracting, setExtracting] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [formData, setFormData] = useState<FilmFormData>({
     code: "",
@@ -131,6 +141,51 @@ export default function UploadClient({ statusOptions }: UploadClientProps) {
     });
     setActiveTab("metadata");
     toast.success("Test data berhasil dimuat");
+  };
+
+  const handleExtract = async () => {
+    if (!extractLink.trim()) {
+      toast.error("URL tidak boleh kosong");
+      return;
+    }
+
+    setExtracting(true);
+    try {
+      const res = await fetch("http://localhost:8000/extract", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url: extractLink }),
+      });
+
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.detail || "Extract gagal");
+      }
+
+      const data = await res.json();
+      
+      setFormData(prev => ({
+        ...prev,
+        code: data.code || prev.code,
+        title: data.title || prev.title,
+        director: data.director || prev.director,
+        studio: data.studio || prev.studio,
+        label: data.label || prev.label,
+        country: data.country || prev.country,
+        language: data.language || prev.language,
+        release_date: data.release_date || prev.release_date,
+        cast: data.cast || prev.cast,
+        genres: data.genres || prev.genres,
+      }));
+
+      setExtractLink("");
+      setActiveTab("metadata");
+      toast.success("Metadata berhasil di-extract");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Extract gagal");
+    } finally {
+      setExtracting(false);
+    }
   };
 
   const getVideoRuntimeMinutes = (file: File): Promise<number> => {
@@ -268,16 +323,45 @@ export default function UploadClient({ statusOptions }: UploadClientProps) {
               </Button>
             )}
 
-            <Button
-              type="button"
-              variant="outline"
-              size="lg"
-              className="rounded-xl border-slate-200 hover:bg-slate-100 text-slate-700 shadow-sm flex items-center gap-2"
-              disabled={isSubmitting}
-            >
-              <Sparkles className="w-4 h-4 text-rose-600" />
-              <span className="hidden sm:inline">Extract</span>
-            </Button>
+            <Dialog>
+              <DialogTrigger>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="lg"
+                  className="rounded-xl border-slate-200 hover:bg-slate-100 text-slate-700 shadow-sm flex items-center gap-2"
+                  disabled={isSubmitting}
+                >
+                  <Sparkles className="w-4 h-4 text-rose-600" />
+                  <span className="hidden sm:inline">Extract</span>
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-md">
+                <DialogHeader>
+                  <DialogTitle>Extract metadata</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium" htmlFor="extract-url">URL</label>
+                  <input
+                    id="extract-url"
+                    type="text"
+                    placeholder="https://www.javlibrary.com/..."
+                    value={extractLink}
+                    onChange={(e) => setExtractLink(e.target.value)}
+                    className="w-full rounded border p-2"
+                    disabled={isSubmitting || extracting}
+                  />
+                </div>
+                <DialogFooter>
+                  <Button
+                    onClick={handleExtract}
+                    disabled={!extractLink || extracting}
+                  >
+                    {extracting ? "Extracting..." : "Extract"}
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
 
             <Button
               type="submit"
