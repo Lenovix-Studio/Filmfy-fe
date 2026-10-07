@@ -127,7 +127,8 @@ export default function UploadClient({ statusOptions }: UploadClientProps) {
       code: "TST-" + Math.random().toString(36).substr(2, 9).toUpperCase(),
       title: "Test Film - Inception",
       status: statusOptions[0]?.id || "",
-      overview: "This is a test film about dreams within dreams. A skilled thief who specializes in extraction, stealing company secrets from people's subconscious during the dream state, is given the inverse task of planting an idea into the mind of a C.E.O.",
+      overview:
+        "This is a test film about dreams within dreams. A skilled thief who specializes in extraction, stealing company secrets from people's subconscious during the dream state, is given the inverse task of planting an idea into the mind of a C.E.O.",
       director: "Christopher Nolan, Denis Villeneuve",
       studio: "Warner Bros, Universal Pictures",
       label: "Legendary Pictures, Syncopy",
@@ -163,8 +164,8 @@ export default function UploadClient({ statusOptions }: UploadClientProps) {
       }
 
       const data = await res.json();
-      
-      setFormData(prev => ({
+
+      setFormData((prev) => ({
         ...prev,
         code: data.code || prev.code,
         title: data.title || prev.title,
@@ -226,7 +227,8 @@ export default function UploadClient({ statusOptions }: UploadClientProps) {
       if (formData.status) data.append("status", formData.status);
       if (formData.country) data.append("country", formData.country);
       if (formData.language) data.append("language", formData.language);
-      if (formData.release_date) data.append("release_date", formData.release_date);
+      if (formData.release_date)
+        data.append("release_date", formData.release_date);
 
       const runtimeMinutes = videoFile
         ? await getVideoRuntimeMinutes(videoFile)
@@ -260,7 +262,7 @@ export default function UploadClient({ statusOptions }: UploadClientProps) {
       let result: any = null;
       try {
         result = await response.json();
-      } catch { }
+      } catch {}
 
       if (!response.ok) {
         throw new Error(
@@ -324,24 +326,28 @@ export default function UploadClient({ statusOptions }: UploadClientProps) {
             )}
 
             <Dialog>
-              <DialogTrigger>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="lg"
-                  className="rounded-xl border-slate-200 hover:bg-slate-100 text-slate-700 shadow-sm flex items-center gap-2"
-                  disabled={isSubmitting}
-                >
-                  <Sparkles className="w-4 h-4 text-rose-600" />
-                  <span className="hidden sm:inline">Extract</span>
-                </Button>
-              </DialogTrigger>
+              <DialogTrigger
+                render={
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="lg"
+                    className="rounded-xl border-slate-200 hover:bg-slate-100 text-slate-700 shadow-sm flex items-center gap-2"
+                    disabled={isSubmitting}
+                  >
+                    <Sparkles className="w-4 h-4 text-rose-600" />
+                    <span className="hidden sm:inline">Extract</span>
+                  </Button>
+                }
+              />
               <DialogContent className="sm:max-w-md">
                 <DialogHeader>
                   <DialogTitle>Extract metadata</DialogTitle>
                 </DialogHeader>
                 <div className="space-y-2">
-                  <label className="text-sm font-medium" htmlFor="extract-url">URL</label>
+                  <label className="text-sm font-medium" htmlFor="extract-url">
+                    URL
+                  </label>
                   <input
                     id="extract-url"
                     type="text"
