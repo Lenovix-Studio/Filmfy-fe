@@ -83,6 +83,8 @@ export interface LogEntry {
   level: LogLevel;
   message: string;
   source: string;
+  request?: any;
+  response?: any;
 }
 
 // Upload Page
