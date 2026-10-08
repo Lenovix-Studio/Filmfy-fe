@@ -290,23 +290,6 @@ export default function UploadClient({ statusOptions }: UploadClientProps) {
 
     if (isSubmitting) return;
 
-    const formDataObj = {
-      code: formData.code,
-      title: formData.title,
-      status: formData.status,
-      overview: formData.overview,
-      director: formData.director,
-      studio: formData.studio,
-      label: formData.label,
-      genres: formData.genres,
-      cast: formData.cast,
-      series: formData.series,
-      country: formData.country,
-      language: formData.language,
-      release_date: formData.release_date,
-      runtime_minutes: formData.runtime_minutes,
-    };
-
     try {
       UploadSchema.parse({
         code: formData.code,

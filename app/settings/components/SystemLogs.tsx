@@ -169,7 +169,9 @@ export default function SystemLogs() {
                     </pre>
                   </div>
                   <div
-                    className="shrink-0 text-slate-400 text-xs mt-0.5 w-40 truncate"
+                    className={`shrink-0 text-xs mt-0.5 w-40 truncate ${getLogColor(
+                      log.level,
+                    )}`}
                     title={log.source}
                   >
                     [{log.source}]
