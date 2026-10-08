@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Film, Heart, Upload, Settings, Search, ArrowLeft } from "lucide-react";
+import { Film, Search, ArrowLeft } from "lucide-react";
 
 interface NavbarProps {
   // Left

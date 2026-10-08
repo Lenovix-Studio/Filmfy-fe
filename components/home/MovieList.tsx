@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useRef } from "react";
-import { Film, Loader2 } from "lucide-react";
+import { Film } from "lucide-react";
 import { Movie } from "@/lib/types";
 import Pagination from "@/components/Pagination";
 import MovieCard from "./MovieCard";

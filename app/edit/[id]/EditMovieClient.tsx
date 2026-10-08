@@ -9,13 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  Save,
-  Image as ImageIcon,
-  X,
-  ArrowLeft,
-  Film as FilmIcon,
-} from "lucide-react";
+import { Save, X, ArrowLeft } from "lucide-react";
 import Image from "next/image";
 import { ExistingImage, GalleryItem, PendingImage } from "@/lib/types";
 
@@ -55,13 +49,11 @@ export default function EditMovieClient({ movie }: { movie: any }) {
   const [coverPreview, setCoverPreview] = useState<string | null>(
     existingCover ? formatMediaUrl(existingCover.file_path) : null,
   );
-  const [coverChanged, setCoverChanged] = useState(false);
 
   const [videoFile, setVideoFile] = useState<File | null>(null);
   const [videoPreview, setVideoPreview] = useState<string | null>(
     movie.files?.[0] ? formatMediaUrl(movie.files[0].file_path) : null,
   );
-  const [videoChanged, setVideoChanged] = useState(false);
 
   const [galleryItems, setGalleryItems] =
     useState<GalleryItem[]>(existingGallery);
@@ -82,7 +74,6 @@ export default function EditMovieClient({ movie }: { movie: any }) {
     const reader = new FileReader();
     reader.onloadend = () => setCoverPreview(reader.result as string);
     reader.readAsDataURL(file);
-    setCoverChanged(true);
   };
 
   const handleVideoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -90,7 +81,6 @@ export default function EditMovieClient({ movie }: { movie: any }) {
     if (!file) return;
     setVideoFile(file);
     setVideoPreview(URL.createObjectURL(file));
-    setVideoChanged(true);
   };
 
   const handleAddGallery = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -165,24 +155,6 @@ export default function EditMovieClient({ movie }: { movie: any }) {
         });
       }
 
-      if (coverChanged && coverFile) {
-        if (existingCover) {
-          await fetch(`${BACKEND_URL}/movies/images/${existingCover.id}`, {
-            method: "DELETE",
-          });
-        }
-        const formData = new FormData();
-        formData.append("screenshot", coverFile);
-        await fetch(`${BACKEND_URL}/movies/${movie.id}/screenshots`, {
-          method: "POST",
-          body: formData,
-        });
-      }
-
-      if (videoChanged && videoFile) {
-        toast.info("Upload video via halaman upload");
-      }
-
       const newGalleryFiles = galleryItems.filter(
         (item): item is PendingImage => "isNew" in item,
       );
@@ -193,6 +165,24 @@ export default function EditMovieClient({ movie }: { movie: any }) {
         );
         await fetch(`${BACKEND_URL}/movies/${movie.id}/screenshots`, {
           method: "POST",
+          body: formData,
+        });
+      }
+
+      if (coverFile) {
+        const formData = new FormData();
+        formData.append("cover", coverFile);
+        await fetch(`${BACKEND_URL}/movies/${movie.id}/cover`, {
+          method: "PATCH",
+          body: formData,
+        });
+      }
+
+      if (videoFile) {
+        const formData = new FormData();
+        formData.append("video", videoFile);
+        await fetch(`${BACKEND_URL}/movies/${movie.id}/video`, {
+          method: "PATCH",
           body: formData,
         });
       }
@@ -221,7 +211,7 @@ export default function EditMovieClient({ movie }: { movie: any }) {
               <ArrowLeft className="w-5 h-5" />
             </Button>
             <h1 className="text-xl md:text-2xl font-bold tracking-tight text-white">
-              Edit: {movie.code}
+              Edit: {movie.title}
             </h1>
           </div>
         }
@@ -242,15 +232,15 @@ export default function EditMovieClient({ movie }: { movie: any }) {
           <h2 className="text-lg font-semibold text-white border-b border-slate-800 pb-3">
             Media Film
           </h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 h-96">
-            <div className="relative border-2 border-dashed border-slate-700 rounded-xl bg-slate-800 flex items-center justify-center p-2 h-full overflow-hidden">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="relative aspect-2/3 border-2 border-dashed border-slate-700 rounded-xl bg-slate-800 flex items-center justify-center overflow-hidden">
               {coverPreview ? (
-                <div className="relative w-full h-full flex items-center justify-center">
+                <div className="relative w-full h-full">
                   <Image
                     src={coverPreview}
                     alt="Cover"
                     fill
-                    className="object-contain"
+                    className="object-cover"
                     unoptimized
                   />
                   <div className="absolute top-2 right-2 flex gap-2">
@@ -267,9 +257,8 @@ export default function EditMovieClient({ movie }: { movie: any }) {
                       size="xs"
                       variant="destructive"
                       onClick={() => {
-                        setCoverPreview(null);
                         setCoverFile(null);
-                        setCoverChanged(true);
+                        setCoverPreview(null);
                       }}
                     >
                       X
@@ -277,20 +266,22 @@ export default function EditMovieClient({ movie }: { movie: any }) {
                   </div>
                 </div>
               ) : (
-                <label className="cursor-pointer text-center">
-                  <ImageIcon className="w-8 h-8 mx-auto mb-2 text-slate-500" />
-                  <span className="text-slate-400 text-sm">Upload Cover</span>
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={handleCoverChange}
-                    className="hidden"
-                  />
-                </label>
+                <div className="text-center text-slate-500">
+                  <p className="text-sm mb-2">Tidak ada cover</p>
+                  <label className="cursor-pointer bg-slate-700 hover:bg-slate-600 text-white px-2 py-1 rounded text-xs">
+                    Upload
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleCoverChange}
+                      className="hidden"
+                    />
+                  </label>
+                </div>
               )}
             </div>
 
-            <div className="md:col-span-2 relative border-2 border-dashed border-slate-700 rounded-xl bg-slate-800 flex items-center justify-center p-2 h-full overflow-hidden">
+            <div className="md:col-span-2 relative aspect-video border-2 border-dashed border-slate-700 rounded-xl bg-slate-800 flex items-center justify-center overflow-hidden">
               {videoPreview ? (
                 <div className="relative w-full h-full">
                   <video
@@ -312,9 +303,8 @@ export default function EditMovieClient({ movie }: { movie: any }) {
                       size="xs"
                       variant="destructive"
                       onClick={() => {
-                        setVideoPreview(null);
                         setVideoFile(null);
-                        setVideoChanged(true);
+                        setVideoPreview(null);
                       }}
                     >
                       X
@@ -322,19 +312,28 @@ export default function EditMovieClient({ movie }: { movie: any }) {
                   </div>
                 </div>
               ) : (
-                <label className="cursor-pointer text-center">
-                  <FilmIcon className="w-8 h-8 mx-auto mb-2 text-slate-500" />
-                  <span className="text-slate-400 text-sm">Upload Video</span>
-                  <input
-                    type="file"
-                    accept="video/*"
-                    onChange={handleVideoChange}
-                    className="hidden"
-                  />
-                </label>
+                <div className="text-center text-slate-500">
+                  <p className="text-sm mb-2">Tidak ada video</p>
+                  <label className="cursor-pointer bg-slate-700 hover:bg-slate-600 text-white px-2 py-1 rounded text-xs">
+                    Upload
+                    <input
+                      type="file"
+                      accept="video/*"
+                      onChange={handleVideoChange}
+                      className="hidden"
+                    />
+                  </label>
+                </div>
               )}
             </div>
           </div>
+          <p className="text-xs text-slate-400 hidden">
+            Untuk mengganti cover atau video, gunakan halaman{" "}
+            <a href="/upload" className="text-indigo-400 hover:underline">
+              Upload
+            </a>
+            .
+          </p>
 
           <div className="bg-slate-800/50 p-4 rounded-xl border border-slate-700">
             <div className="flex justify-between items-center mb-3">
