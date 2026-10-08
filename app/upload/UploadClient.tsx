@@ -46,10 +46,13 @@ export default function UploadClient({ statusOptions }: UploadClientProps) {
   const [coverPreview, setCoverPreview] = useState<string | null>(null);
   const [videoFile, setVideoFile] = useState<File | null>(null);
   const [videoPreview, setVideoPreview] = useState<string | null>(null);
+  const [galleryFiles, setGalleryFiles] = useState<File[]>([]);
+  const [galleryPreviews, setGalleryPreviews] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [activeTab, setActiveTab] = useState<string>("media");
   const [extractLink, setExtractLink] = useState("");
   const [extracting, setExtracting] = useState(false);
+  const [extractModalOpen, setExtractModalOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [formData, setFormData] = useState<FilmFormData>({
     code: "",
@@ -146,21 +149,22 @@ export default function UploadClient({ statusOptions }: UploadClientProps) {
 
   const handleExtract = async () => {
     if (!extractLink.trim()) {
-      toast.error("URL tidak boleh kosong");
+      toast.error("Code tidak boleh kosong");
       return;
     }
 
     setExtracting(true);
+    setExtractModalOpen(true);
     try {
-      const res = await fetch("http://localhost:8000/extract", {
+      const res = await fetch(`${BACKEND_URL}/movies/extract`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url: extractLink }),
+        body: JSON.stringify({ code: extractLink }),
       });
 
       if (!res.ok) {
         const err = await res.json();
-        throw new Error(err.detail || "Extract gagal");
+        throw new Error(err.message || "Extract gagal");
       }
 
       const data = await res.json();
@@ -169,6 +173,7 @@ export default function UploadClient({ statusOptions }: UploadClientProps) {
         ...prev,
         code: data.code || prev.code,
         title: data.title || prev.title,
+        overview: data.overview || prev.overview,
         director: data.director || prev.director,
         studio: data.studio || prev.studio,
         label: data.label || prev.label,
@@ -176,11 +181,55 @@ export default function UploadClient({ statusOptions }: UploadClientProps) {
         language: data.language || prev.language,
         release_date: data.release_date || prev.release_date,
         cast: data.cast || prev.cast,
+        runtime_minutes: data.runtime_minutes || prev.runtime_minutes,
+        series: data.series || prev.series,
         genres: data.genres || prev.genres,
       }));
 
-      setExtractLink("");
+      if (data.cover_url) {
+        try {
+          const proxyUrl = `${BACKEND_URL}/movies/extract/cover?url=${encodeURIComponent(data.cover_url)}`;
+          const imageRes = await fetch(proxyUrl);
+          const blob = await imageRes.blob();
+          const file = new File([blob], `${data.code || "cover"}.jpg`, {
+            type: blob.type,
+          });
+          setCoverFile(file);
+          setCoverPreview(URL.createObjectURL(blob));
+        } catch (e) {
+          console.error("Gagal mendownload cover preview:", e);
+        }
+      }
+
+      if (data.gallery_urls && Array.isArray(data.gallery_urls)) {
+        const newGalleryFiles: File[] = [];
+        const newGalleryPreviews: string[] = [];
+
+        for (let i = 0; i < data.gallery_urls.length; i++) {
+          const url = data.gallery_urls[i];
+          try {
+            const proxyUrl = `${BACKEND_URL}/movies/extract/cover?url=${encodeURIComponent(url)}`;
+            const imageRes = await fetch(proxyUrl);
+            const blob = await imageRes.blob();
+            const file = new File(
+              [blob],
+              `${data.code || "gallery"}_${i}.jpg`,
+              { type: blob.type },
+            );
+            newGalleryFiles.push(file);
+            const objectUrl = URL.createObjectURL(blob);
+            newGalleryPreviews.push(objectUrl);
+          } catch (e) {
+            console.error(`Gagal mendownload gallery preview ${i}:`, e);
+            newGalleryPreviews.push(url);
+          }
+        }
+
+        setGalleryFiles(newGalleryFiles);
+        setGalleryPreviews(newGalleryPreviews);
+      }
       setActiveTab("metadata");
+      setExtractModalOpen(false);
       toast.success("Metadata berhasil di-extract");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Extract gagal");
@@ -254,6 +303,10 @@ export default function UploadClient({ statusOptions }: UploadClientProps) {
       const genreArray = parseCommaSeparated(formData.genres);
       genreArray.forEach((g) => data.append("genre", g));
 
+      if (galleryFiles.length > 0) {
+        galleryFiles.forEach((file) => data.append("gallery", file));
+      }
+
       const response = await fetch(`${BACKEND_URL}/movies/upload`, {
         method: "POST",
         body: data,
@@ -292,6 +345,8 @@ export default function UploadClient({ statusOptions }: UploadClientProps) {
       setCoverPreview(null);
       setVideoFile(null);
       setVideoPreview(null);
+      setGalleryFiles([]);
+      setGalleryPreviews([]);
       setActiveTab("media");
     } catch (error) {
       console.error("Upload failed:", error);
@@ -325,7 +380,7 @@ export default function UploadClient({ statusOptions }: UploadClientProps) {
               </Button>
             )}
 
-            <Dialog>
+            <Dialog open={extractModalOpen} onOpenChange={setExtractModalOpen}>
               <DialogTrigger
                 render={
                   <Button
@@ -345,13 +400,13 @@ export default function UploadClient({ statusOptions }: UploadClientProps) {
                   <DialogTitle>Extract metadata</DialogTitle>
                 </DialogHeader>
                 <div className="space-y-2">
-                  <label className="text-sm font-medium" htmlFor="extract-url">
-                    URL
+                  <label className="text-sm font-medium" htmlFor="extract-code">
+                    Code
                   </label>
                   <input
-                    id="extract-url"
+                    id="extract-code"
                     type="text"
-                    placeholder="https://www.javlibrary.com/..."
+                    placeholder="misal: EBOD-391"
                     value={extractLink}
                     onChange={(e) => setExtractLink(e.target.value)}
                     className="w-full rounded border p-2"
@@ -419,8 +474,12 @@ export default function UploadClient({ statusOptions }: UploadClientProps) {
               </TabsTrigger>
             </TabsList>
 
-            <TabsContent value="media" className="mt-0 outline-none">
-              <div className="grid sm:grid-cols-3 gap-6 h-160">
+            <TabsContent
+              value="media"
+              className="mt-0 outline-none flex flex-col gap-4 h-155"
+            >
+              {/* Row 1: Cover and Video side by side */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 h-105 shrink-0">
                 <div className="flex flex-col h-full">
                   <div className="relative flex-1 border-2 border-dashed border-slate-300 hover:border-rose-500 rounded-xl bg-slate-50/80 hover:bg-rose-50/30 flex items-center justify-center p-2 text-center transition-all group overflow-hidden">
                     {coverPreview ? (
@@ -479,14 +538,14 @@ export default function UploadClient({ statusOptions }: UploadClientProps) {
                   </div>
                 </div>
 
-                <div className="flex flex-col col-span-2 h-full">
-                  <div className="relative flex-1 border-2 border-dashed border-slate-300 hover:border-rose-500 rounded-xl bg-slate-50/80 hover:bg-rose-50/30 flex items-center justify-center p-2 transition-all group overflow-hidden">
+                <div className="flex flex-col md:col-span-2 h-full min-h-0 overflow-hidden">
+                  <div className="relative flex-1 h-full min-h-0 border-2 border-dashed border-slate-300 hover:border-rose-500 rounded-xl bg-slate-50/80 hover:bg-rose-50/30 flex items-center justify-center p-2 transition-all group overflow-hidden">
                     {videoPreview ? (
-                      <div className="relative w-full h-full flex items-center justify-center bg-black/5 rounded-lg">
+                      <div className="relative w-full h-full max-h-full flex items-center justify-center bg-black/5 rounded-lg overflow-hidden">
                         <video
                           src={videoPreview}
                           controls
-                          className="w-full h-full object-contain rounded-lg shadow-sm"
+                          className="w-full h-full max-h-full object-contain rounded-lg shadow-sm"
                         />
                         <div className="absolute top-3 right-3 flex items-center gap-2 bg-white/90 p-1.5 rounded-lg shadow-md backdrop-blur-sm border border-slate-200/50">
                           <label className="cursor-pointer bg-slate-100 hover:bg-slate-200 text-slate-700 px-3 py-1.5 rounded text-xs font-semibold shadow-sm transition-colors">
@@ -536,6 +595,80 @@ export default function UploadClient({ statusOptions }: UploadClientProps) {
                     )}
                   </div>
                 </div>
+              </div>
+
+              {/* Row 2: Gallery below */}
+              <div className="bg-slate-50/50 p-4 rounded-xl border border-slate-200 flex-1 min-h-0 overflow-hidden flex flex-col">
+                <div className="flex items-center justify-between mb-3">
+                  <Label className="text-sm font-semibold text-slate-700">
+                    Gallery
+                  </Label>
+                  <label className="cursor-pointer bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 px-3 py-1.5 rounded-lg text-xs font-medium shadow-xs transition-colors flex items-center gap-1.5">
+                    <ImageIcon className="w-3.5 h-3.5 text-slate-500" />
+                    Tambah Foto
+                    <input
+                      type="file"
+                      accept="image/*"
+                      multiple
+                      onChange={(e) => {
+                        const files = Array.from(e.target.files || []);
+                        if (files.length === 0) return;
+
+                        const newFiles = [...galleryFiles, ...files];
+                        const newPreviews = [...galleryPreviews];
+
+                        files.forEach((file) => {
+                          newPreviews.push(URL.createObjectURL(file));
+                        });
+
+                        setGalleryFiles(newFiles);
+                        setGalleryPreviews(newPreviews);
+                      }}
+                      disabled={isSubmitting}
+                      className="hidden"
+                    />
+                  </label>
+                </div>
+
+                {galleryPreviews.length === 0 ? (
+                  <div className="text-center py-6 border-2 border-dashed border-slate-200 rounded-lg text-xs text-slate-400 flex-1 flex items-center justify-center">
+                    Belum ada foto gallery
+                  </div>
+                ) : (
+                  <div className="flex gap-3 overflow-x-auto pb-2 pt-1 scrollbar-thin flex-1">
+                    {galleryPreviews.map((url, idx) => (
+                      <div
+                        key={idx}
+                        className="relative shrink-0 w-36 h-24 rounded-lg overflow-hidden border border-slate-200 group"
+                      >
+                        <img
+                          src={url}
+                          alt={`gallery-${idx}`}
+                          className="w-full h-full object-cover"
+                        />
+                        <Button
+                          type="button"
+                          variant="destructive"
+                          size="xs"
+                          className="absolute top-1 right-1 h-6 w-6 p-0 rounded-full opacity-80 group-hover:opacity-100 shadow-sm"
+                          onClick={() => {
+                            try {
+                              URL.revokeObjectURL(url);
+                            } catch {}
+                            setGalleryPreviews((p) =>
+                              p.filter((_, i) => i !== idx),
+                            );
+                            setGalleryFiles((f) =>
+                              f.filter((_, i) => i !== idx),
+                            );
+                          }}
+                        >
+                          ✕
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             </TabsContent>
 
