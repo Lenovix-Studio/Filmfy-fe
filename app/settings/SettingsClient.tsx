@@ -5,7 +5,7 @@ import axios from "axios";
 import { Settings } from "lucide-react";
 import Header from "@/components/Header";
 import { toast } from "sonner";
-import { BACKEND_URL } from "@/lib/constant";
+import { API_COMMON_CODE, BACKEND_URL } from "@/lib/constant";
 import { CodeDetailType, CodeType, SettingsTabType } from "@/lib/types";
 import TypeCodeDialog from "./components/TypeCodeDialog";
 import DetailCodeDialog from "./components/DetailCodeDialog";
@@ -14,8 +14,6 @@ import CommonCodeSettings from "./components/CommonCodeSettings";
 import SettingsTabs from "./components/SettingsTabs";
 import DeleteConfirmDialog from "./components/DeleteConfirmDialog";
 import SystemLogs from "./components/SystemLogs";
-
-const API_BASE = `${BACKEND_URL}/common-codes`;
 
 interface SettingsClientProps {
   initialTypes: CodeType[];
@@ -57,7 +55,7 @@ export default function SettingsClient({ initialTypes }: SettingsClientProps) {
   const fetchTypes = async () => {
     try {
       setIsLoading(true);
-      const { data } = await axios.get(API_BASE);
+      const { data } = await axios.get(API_COMMON_CODE);
       const arrayData = Array.isArray(data)
         ? data
         : data?.data && Array.isArray(data.data)
@@ -78,7 +76,9 @@ export default function SettingsClient({ initialTypes }: SettingsClientProps) {
   const fetchDetails = async (typeCode: string) => {
     if (!typeCode) return;
     try {
-      const { data } = await axios.get(`${API_BASE}/${typeCode}/details`);
+      const { data } = await axios.get(
+        `${API_COMMON_CODE}/${typeCode}/details`,
+      );
       const arrayData = Array.isArray(data)
         ? data
         : data?.data && Array.isArray(data.data)
@@ -109,14 +109,14 @@ export default function SettingsClient({ initialTypes }: SettingsClientProps) {
       }
 
       if (typeDialog.mode === "add") {
-        await axios.post(API_BASE, {
+        await axios.post(API_COMMON_CODE, {
           code,
           name,
           description: description || "",
         });
         toast.success("Berhasil menambahkan Type");
       } else {
-        await axios.patch(`${API_BASE}/${typeDialog.data.id}`, {
+        await axios.patch(`${API_COMMON_CODE}/${typeDialog.data.id}`, {
           name,
           description: description || "",
         });
@@ -134,7 +134,7 @@ export default function SettingsClient({ initialTypes }: SettingsClientProps) {
     if (!id) return;
 
     try {
-      await axios.delete(`${API_BASE}/${id}`);
+      await axios.delete(`${API_COMMON_CODE}/${id}`);
       toast.success("Berhasil menghapus Type");
       if (selectedType === types.find((t) => t.id === id)?.code) {
         setSelectedType("");
@@ -157,7 +157,7 @@ export default function SettingsClient({ initialTypes }: SettingsClientProps) {
       }
 
       if (detailDialog.mode === "add") {
-        await axios.post(`${API_BASE}/${selectedType}/details`, {
+        await axios.post(`${API_COMMON_CODE}/${selectedType}/details`, {
           code,
           label,
           order: Number(order) || 0,
@@ -165,11 +165,14 @@ export default function SettingsClient({ initialTypes }: SettingsClientProps) {
         });
         toast.success("Berhasil menambahkan Detail");
       } else {
-        await axios.patch(`${API_BASE}/details/${detailDialog.data.id}`, {
-          label,
-          order: Number(order) || 0,
-          is_active: is_active ?? true,
-        });
+        await axios.patch(
+          `${API_COMMON_CODE}/details/${detailDialog.data.id}`,
+          {
+            label,
+            order: Number(order) || 0,
+            is_active: is_active ?? true,
+          },
+        );
         toast.success("Berhasil mengubah Detail");
       }
       setDetailDialog({ isOpen: false, mode: "add", data: {} });
@@ -185,7 +188,7 @@ export default function SettingsClient({ initialTypes }: SettingsClientProps) {
     if (!id) return;
 
     try {
-      await axios.delete(`${API_BASE}/details/${id}`);
+      await axios.delete(`${API_COMMON_CODE}/details/${id}`);
       toast.success("Berhasil menghapus Detail");
       fetchDetails(selectedType);
       fetchTypes();

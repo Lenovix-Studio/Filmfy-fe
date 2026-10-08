@@ -106,6 +106,7 @@ export interface FilmFormData {
 }
 
 // Favorites Page
+export type SortOption = "LATEST" | "RATING_DESC" | "TITLE_ASC";
 export interface FavoriteMovie {
   id: string;
   code: string;
@@ -113,4 +114,17 @@ export interface FavoriteMovie {
   posterUrl: string;
   addedAt: string;
   isFavorite: boolean;
+}
+
+// Edit Page
+export type GalleryItem = ExistingImage | PendingImage;
+export interface ExistingImage {
+  id: string;
+  file_path: string;
+  image_type: string;
+}
+export interface PendingImage {
+  file: File;
+  preview: string;
+  isNew: true;
 }

@@ -115,7 +115,15 @@ export default function UploadClient({ statusOptions }: UploadClientProps) {
         return;
       }
 
-      if (!["video/mp4", "video/x-matroska", "video/webm", "video/quicktime", "video/x-msvideo"].includes(file.type)) {
+      if (
+        ![
+          "video/mp4",
+          "video/x-matroska",
+          "video/webm",
+          "video/quicktime",
+          "video/x-msvideo",
+        ].includes(file.type)
+      ) {
         toast.error("Format video tidak didukung");
         return;
       }
@@ -123,7 +131,6 @@ export default function UploadClient({ statusOptions }: UploadClientProps) {
       setVideoFile(file);
       setVideoPreview(URL.createObjectURL(file));
 
-      // Extract duration (metadata) as before
       const video = document.createElement("video");
       video.preload = "metadata";
       video.onloadedmetadata = () => {
@@ -278,7 +285,7 @@ export default function UploadClient({ statusOptions }: UploadClientProps) {
     });
   };
 
-    const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
     if (isSubmitting) return;
@@ -351,22 +358,18 @@ export default function UploadClient({ statusOptions }: UploadClientProps) {
         galleryFiles.forEach((file) => form.append("gallery", file));
       }
 
-      const response = await axios.post(
-        `${BACKEND_URL}/movies/upload`,
-        form,
-        {
-          headers: {
-            "Content-Type": "multipart/form-data",
-          },
-          onUploadProgress: (progressEvent) => {
-            const total = progressEvent.total || progressEvent.loaded;
-            const percentCompleted = Math.round(
-              (progressEvent.loaded * 100) / total
-            );
-            setUploadProgress(percentCompleted);
-          },
-        }
-      );
+      const response = await axios.post(`${BACKEND_URL}/movies/upload`, form, {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+        onUploadProgress: (progressEvent) => {
+          const total = progressEvent.total || progressEvent.loaded;
+          const percentCompleted = Math.round(
+            (progressEvent.loaded * 100) / total,
+          );
+          setUploadProgress(percentCompleted);
+        },
+      });
 
       toast.success(response.data?.message ?? "Film berhasil diunggah!");
 
@@ -405,8 +408,6 @@ export default function UploadClient({ statusOptions }: UploadClientProps) {
       setUploadProgress(0);
     }
   };
-
-
 
   return (
     <div className="bg-white min-h-screen">

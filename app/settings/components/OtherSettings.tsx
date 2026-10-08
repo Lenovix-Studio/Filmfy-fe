@@ -22,7 +22,8 @@ export const OtherSettings: React.FC<OtherSettingsProps> = ({
               Hapus Semua Favorit
             </p>
             <p className="text-xs text-slate-500 max-w-xl leading-relaxed">
-              Menghapus semua film dari daftar favorit. Film tidak akan dihapus dari database.
+              Menghapus semua film dari daftar favorit. Film tidak akan dihapus
+              dari database.
             </p>
           </div>
           <Button

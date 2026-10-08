@@ -158,12 +158,16 @@ export default function SystemLogs() {
                   <div className="shrink-0 text-slate-500 text-xs mt-0.5 w-36">
                     {log.timestamp}
                   </div>
-            <div className="shrink-0 w-48">
-              <pre className="text-xs whitespace-pre-wrap text-slate-400">{JSON.stringify(log.request, null, 2)}</pre>
-            </div>
-            <div className="shrink-0 w-48">
-              <pre className="text-xs whitespace-pre-wrap text-slate-400">{JSON.stringify(log.response, null, 2)}</pre>
-            </div>
+                  <div className="shrink-0 w-48">
+                    <pre className="text-xs whitespace-pre-wrap text-slate-400">
+                      {JSON.stringify(log.request, null, 2)}
+                    </pre>
+                  </div>
+                  <div className="shrink-0 w-48">
+                    <pre className="text-xs whitespace-pre-wrap text-slate-400">
+                      {JSON.stringify(log.response, null, 2)}
+                    </pre>
+                  </div>
                   <div
                     className="shrink-0 text-slate-400 text-xs mt-0.5 w-40 truncate"
                     title={log.source}

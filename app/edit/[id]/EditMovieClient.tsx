@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { BACKEND_URL, STORAGE_URL } from "@/lib/constant";
 import { toast } from "sonner";
@@ -9,8 +9,15 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Save, Image as ImageIcon, X, ArrowLeft } from "lucide-react";
+import {
+  Save,
+  Image as ImageIcon,
+  X,
+  ArrowLeft,
+  Film as FilmIcon,
+} from "lucide-react";
 import Image from "next/image";
+import { ExistingImage, GalleryItem, PendingImage } from "@/lib/types";
 
 const formatMediaUrl = (filePath: string) => {
   if (!filePath) return "";
@@ -38,27 +45,29 @@ export default function EditMovieClient({ movie }: { movie: any }) {
     cast: movie.casts?.map((c: any) => c.name).join(", ") || "",
   });
 
-  // typed helpers for image arrays
-  const typedImages = movie.images as { id: string; image_type: string; file_path: string }[];
-  const typedGallery = typedImages?.filter((img) => img.image_type === "gallery");
-  const typedCover = typedImages?.find((img) => img.image_type === "cover");
+  const typedImages = (movie.images || []) as ExistingImage[];
+  const existingCover = typedImages.find((img) => img.image_type === "cover");
+  const existingGallery = typedImages.filter(
+    (img) => img.image_type === "gallery" || img.image_type === "screenshot",
+  );
 
   const [coverFile, setCoverFile] = useState<File | null>(null);
   const [coverPreview, setCoverPreview] = useState<string | null>(
-    typedCover ? formatMediaUrl(typedCover.file_path) : null,
+    existingCover ? formatMediaUrl(existingCover.file_path) : null,
   );
+  const [coverChanged, setCoverChanged] = useState(false);
+
   const [videoFile, setVideoFile] = useState<File | null>(null);
   const [videoPreview, setVideoPreview] = useState<string | null>(
-    movie.files && movie.files.length > 0 ? formatMediaUrl(movie.files[0].file_path) : null,
+    movie.files?.[0] ? formatMediaUrl(movie.files[0].file_path) : null,
   );
-  const [galleryPreviews, setGalleryPreviews] = useState<string[]>(
-    typedGallery?.map((img) => formatMediaUrl(img.file_path)) || [],
-  );
-  const [galleryFiles, setGalleryFiles] = useState<File[]>([]);
+  const [videoChanged, setVideoChanged] = useState(false);
+
+  const [galleryItems, setGalleryItems] =
+    useState<GalleryItem[]>(existingGallery);
+  const [imagesToDelete, setImagesToDelete] = useState<string[]>([]);
 
   const [isSaving, setIsSaving] = useState(false);
-  const [images, setImages] = useState<any[]>(movie.images || []);
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleInputChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
@@ -73,6 +82,7 @@ export default function EditMovieClient({ movie }: { movie: any }) {
     const reader = new FileReader();
     reader.onloadend = () => setCoverPreview(reader.result as string);
     reader.readAsDataURL(file);
+    setCoverChanged(true);
   };
 
   const handleVideoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -80,19 +90,31 @@ export default function EditMovieClient({ movie }: { movie: any }) {
     if (!file) return;
     setVideoFile(file);
     setVideoPreview(URL.createObjectURL(file));
+    setVideoChanged(true);
   };
 
   const handleAddGallery = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
     if (files.length === 0) return;
-    const newFiles = [...galleryFiles, ...files];
-    const newPreviews = [...galleryPreviews];
-    files.forEach((f) => newPreviews.push(URL.createObjectURL(f)));
-    setGalleryFiles(newFiles);
-    setGalleryPreviews(newPreviews);
+    const newItems: PendingImage[] = files.map((f) => ({
+      file: f,
+      preview: URL.createObjectURL(f),
+      isNew: true as const,
+    }));
+    setGalleryItems((prev) => [...prev, ...newItems]);
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleRemoveGallery = (index: number) => {
+    const item = galleryItems[index];
+    if ("isNew" in item) {
+      URL.revokeObjectURL(item.preview);
+    } else {
+      setImagesToDelete((prev) => [...prev, item.id]);
+    }
+    setGalleryItems((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setIsSaving(true);
 
@@ -127,68 +149,61 @@ export default function EditMovieClient({ movie }: { movie: any }) {
     };
 
     try {
-      const res = await fetch(`${BACKEND_URL}/movies/${movie.id}`, {
+      const metaRes = await fetch(`${BACKEND_URL}/movies/${movie.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
-      if (res.ok) {
-        toast.success("Metadata berhasil diupdate");
-        router.push(`/movie/${movie.id}`);
-        router.refresh();
-      } else {
-        const err = await res.json();
-        toast.error(err.message || "Gagal update metadata");
+      if (!metaRes.ok) {
+        const err = await metaRes.json();
+        throw new Error(err.message || "Gagal update metadata");
       }
+
+      for (const imgId of imagesToDelete) {
+        await fetch(`${BACKEND_URL}/movies/images/${imgId}`, {
+          method: "DELETE",
+        });
+      }
+
+      if (coverChanged && coverFile) {
+        if (existingCover) {
+          await fetch(`${BACKEND_URL}/movies/images/${existingCover.id}`, {
+            method: "DELETE",
+          });
+        }
+        const formData = new FormData();
+        formData.append("screenshot", coverFile);
+        await fetch(`${BACKEND_URL}/movies/${movie.id}/screenshots`, {
+          method: "POST",
+          body: formData,
+        });
+      }
+
+      if (videoChanged && videoFile) {
+        toast.info("Upload video via halaman upload");
+      }
+
+      const newGalleryFiles = galleryItems.filter(
+        (item): item is PendingImage => "isNew" in item,
+      );
+      if (newGalleryFiles.length > 0) {
+        const formData = new FormData();
+        newGalleryFiles.forEach((item) =>
+          formData.append("screenshot", item.file),
+        );
+        await fetch(`${BACKEND_URL}/movies/${movie.id}/screenshots`, {
+          method: "POST",
+          body: formData,
+        });
+      }
+
+      toast.success("Perubahan berhasil disimpan");
+      router.push(`/movie/${movie.id}`);
+      router.refresh();
     } catch (error) {
-      toast.error("Terjadi kesalahan sistem");
+      toast.error(error instanceof Error ? error.message : "Gagal menyimpan");
     } finally {
       setIsSaving(false);
-    }
-  };
-
-  const handleUploadScreenshot = async (
-    e: React.ChangeEvent<HTMLInputElement>,
-  ) => {
-    if (!e.target.files || e.target.files.length === 0) return;
-
-    const fData = new FormData();
-    for (let i = 0; i < e.target.files.length; i++) {
-      fData.append("screenshot", e.target.files[i]);
-    }
-
-    try {
-      const res = await fetch(`${BACKEND_URL}/movies/${movie.id}/screenshots`, {
-        method: "POST",
-        body: fData,
-      });
-
-      if (res.ok) {
-        const result = await res.json();
-        setImages([...images, ...result.data]);
-        toast.success("Screenshot berhasil diunggah");
-      } else {
-        toast.error("Gagal upload screenshot");
-      }
-    } catch (error) {
-      toast.error("Terjadi kesalahan saat upload");
-    }
-  };
-
-  const handleDeleteImage = async (imageId: string) => {
-    if (!confirm("Hapus gambar ini?")) return;
-    try {
-      const res = await fetch(`${BACKEND_URL}/movies/images/${imageId}`, {
-        method: "DELETE",
-      });
-      if (res.ok) {
-        setImages(images.filter((img) => img.id !== imageId));
-        toast.success("Gambar dihapus");
-      } else {
-        toast.error("Gagal menghapus gambar");
-      }
-    } catch (error) {
-      toast.error("Terjadi kesalahan");
     }
   };
 
@@ -206,7 +221,7 @@ export default function EditMovieClient({ movie }: { movie: any }) {
               <ArrowLeft className="w-5 h-5" />
             </Button>
             <h1 className="text-xl md:text-2xl font-bold tracking-tight text-white">
-              Edit Film: {movie.title}
+              Edit: {movie.code}
             </h1>
           </div>
         }
@@ -223,59 +238,155 @@ export default function EditMovieClient({ movie }: { movie: any }) {
       />
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-8 pb-16 space-y-8">
-    {/* Media Section */}
-    <div className="bg-slate-900/60 p-6 md:p-8 rounded-2xl border border-slate-800 space-y-6">
-      <h2 className="text-lg font-semibold text-white border-b border-slate-800 pb-3">Media Film</h2>
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 h-96">
-        {/* Cover */}
-        <div className="relative border-2 border-dashed border-slate-700 rounded-xl bg-slate-800 flex items-center justify-center p-2 h-full overflow-hidden">
-          {coverPreview ? (
-            <div className="relative w-full h-full flex items-center justify-center">
-              <Image src={coverPreview} alt="Cover" fill className="object-contain" unoptimized />
-              <Button size="xs" variant="destructive" className="absolute top-2 right-2" onClick={() => setCoverPreview(null)}>X</Button>
+        <div className="bg-slate-900/60 p-6 md:p-8 rounded-2xl border border-slate-800 space-y-6">
+          <h2 className="text-lg font-semibold text-white border-b border-slate-800 pb-3">
+            Media Film
+          </h2>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 h-96">
+            <div className="relative border-2 border-dashed border-slate-700 rounded-xl bg-slate-800 flex items-center justify-center p-2 h-full overflow-hidden">
+              {coverPreview ? (
+                <div className="relative w-full h-full flex items-center justify-center">
+                  <Image
+                    src={coverPreview}
+                    alt="Cover"
+                    fill
+                    className="object-contain"
+                    unoptimized
+                  />
+                  <div className="absolute top-2 right-2 flex gap-2">
+                    <label className="cursor-pointer bg-slate-700 hover:bg-slate-600 text-white px-2 py-1 rounded text-xs">
+                      Replace
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={handleCoverChange}
+                        className="hidden"
+                      />
+                    </label>
+                    <Button
+                      size="xs"
+                      variant="destructive"
+                      onClick={() => {
+                        setCoverPreview(null);
+                        setCoverFile(null);
+                        setCoverChanged(true);
+                      }}
+                    >
+                      X
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <label className="cursor-pointer text-center">
+                  <ImageIcon className="w-8 h-8 mx-auto mb-2 text-slate-500" />
+                  <span className="text-slate-400 text-sm">Upload Cover</span>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleCoverChange}
+                    className="hidden"
+                  />
+                </label>
+              )}
             </div>
-          ) : (
-            <label className="cursor-pointer">
-              <ImageIcon className="w-8 h-8 mx-auto" />
-              <span>Upload Cover</span>
-              <input type="file" accept="image/*" onChange={handleCoverChange} className="hidden" />
-            </label>
-          )}
-        </div>
-        {/* Video */}
-        <div className="md:col-span-2 relative border-2 border-dashed border-slate-700 rounded-xl bg-slate-800 flex items-center justify-center p-2 h-full overflow-hidden">
-          {videoPreview ? (
-            <video src={videoPreview} controls className="w-full h-full max-h-full object-contain" />
-          ) : (
-            <label className="cursor-pointer">
-              <span>Upload Video</span>
-              <input type="file" accept="video/*" onChange={handleVideoChange} className="hidden" />
-            </label>
-          )}
-        </div>
-      </div>
-      {/* Gallery */}
-      <div className="bg-slate-800/50 p-4 rounded-xl border border-slate-700 h-48 overflow-hidden flex flex-col">
-        <div className="flex justify-between items-center mb-3 shrink-0">
-          <Label>Gallery</Label>
-          <label className="bg-indigo-600 px-3 py-1 rounded cursor-pointer text-xs">Tambah Foto
-            <input type="file" multiple accept="image/*" onChange={handleAddGallery} className="hidden" />
-          </label>
-        </div>
-        <div className="flex gap-3 overflow-x-auto pb-2 flex-1 min-h-0">
-          {galleryPreviews.map((url, idx) => (
-            <div key={idx} className="relative shrink-0 w-32 h-20">
-              <Image src={url} alt="Gal" fill className="object-cover" unoptimized />
-              <Button size="xs" variant="destructive" className="absolute top-0 right-0" onClick={() => setGalleryPreviews(prev => prev.filter((_,i) => i !== idx))}>X</Button>
-            </div>
-          ))}
-        </div>
-      </div>
-    </div>
 
+            <div className="md:col-span-2 relative border-2 border-dashed border-slate-700 rounded-xl bg-slate-800 flex items-center justify-center p-2 h-full overflow-hidden">
+              {videoPreview ? (
+                <div className="relative w-full h-full">
+                  <video
+                    src={videoPreview}
+                    controls
+                    className="w-full h-full object-contain"
+                  />
+                  <div className="absolute top-2 right-2 flex gap-2">
+                    <label className="cursor-pointer bg-slate-700 hover:bg-slate-600 text-white px-2 py-1 rounded text-xs">
+                      Replace
+                      <input
+                        type="file"
+                        accept="video/*"
+                        onChange={handleVideoChange}
+                        className="hidden"
+                      />
+                    </label>
+                    <Button
+                      size="xs"
+                      variant="destructive"
+                      onClick={() => {
+                        setVideoPreview(null);
+                        setVideoFile(null);
+                        setVideoChanged(true);
+                      }}
+                    >
+                      X
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <label className="cursor-pointer text-center">
+                  <FilmIcon className="w-8 h-8 mx-auto mb-2 text-slate-500" />
+                  <span className="text-slate-400 text-sm">Upload Video</span>
+                  <input
+                    type="file"
+                    accept="video/*"
+                    onChange={handleVideoChange}
+                    className="hidden"
+                  />
+                </label>
+              )}
+            </div>
+          </div>
+
+          <div className="bg-slate-800/50 p-4 rounded-xl border border-slate-700">
+            <div className="flex justify-between items-center mb-3">
+              <Label className="text-white">Gallery / Screenshot</Label>
+              <label className="bg-indigo-600 hover:bg-indigo-700 px-3 py-1.5 rounded cursor-pointer text-xs text-white">
+                Tambah Foto
+                <input
+                  type="file"
+                  multiple
+                  accept="image/*"
+                  onChange={handleAddGallery}
+                  className="hidden"
+                />
+              </label>
+            </div>
+            <div className="flex gap-3 overflow-x-auto pb-2">
+              {galleryItems.map((item, idx) => {
+                const src =
+                  "isNew" in item
+                    ? item.preview
+                    : formatMediaUrl(item.file_path);
+                return (
+                  <div
+                    key={idx}
+                    className="relative shrink-0 w-32 h-20 rounded overflow-hidden"
+                  >
+                    <Image
+                      src={src}
+                      alt="Gallery"
+                      fill
+                      className="object-cover"
+                      unoptimized
+                    />
+                    <Button
+                      size="xs"
+                      variant="destructive"
+                      className="absolute top-1 right-1"
+                      onClick={() => handleRemoveGallery(idx)}
+                    >
+                      <X className="w-3 h-3" />
+                    </Button>
+                  </div>
+                );
+              })}
+              {galleryItems.length === 0 && (
+                <p className="text-slate-500 text-sm">Belum ada gallery</p>
+              )}
+            </div>
+          </div>
+        </div>
 
         <form
-          id="edit-form"
           onSubmit={handleSubmit}
           className="bg-slate-900/60 p-6 md:p-8 rounded-2xl border border-slate-800 space-y-6"
         >
@@ -409,65 +520,6 @@ export default function EditMovieClient({ movie }: { movie: any }) {
             </div>
           </div>
         </form>
-
-        <section className="bg-slate-900/60 p-6 md:p-8 rounded-2xl border border-slate-800 space-y-6">
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-slate-800 pb-3">
-            <div>
-              <h2 className="text-lg font-semibold text-white">
-                Gambar & Screenshot
-              </h2>
-              <p className="text-sm text-slate-400">
-                Kelola cover, poster, dan tambahkan screenshot.
-              </p>
-            </div>
-            <div>
-              <input
-                type="file"
-                multiple
-                accept="image/*"
-                className="hidden"
-                ref={fileInputRef}
-                onChange={handleUploadScreenshot}
-              />
-              <Button
-                onClick={() => fileInputRef.current?.click()}
-                className="bg-slate-800 hover:bg-slate-700 text-white border border-slate-700"
-              >
-                <ImageIcon className="w-4 h-4 mr-2" /> Tambah Screenshot
-              </Button>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-            {images.map((img) => (
-              <div
-                key={img.id}
-                className="relative group aspect-video bg-slate-800 rounded-xl overflow-hidden border border-slate-700"
-              >
-                <Image
-                  src={formatMediaUrl(img.file_path)}
-                  alt={img.image_type}
-                  fill
-                  className="object-cover"
-                  unoptimized
-                />
-                <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-between p-2">
-                  <div className="flex justify-between items-start">
-                    <span className="text-[10px] font-bold uppercase px-2 py-0.5 bg-indigo-600 rounded text-white shadow-sm">
-                      {img.image_type}
-                    </span>
-                    <button
-                      onClick={() => handleDeleteImage(img.id)}
-                      className="p-1.5 bg-rose-600/80 hover:bg-rose-600 text-white rounded-full transition-colors"
-                    >
-                      <X className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </section>
       </main>
     </>
   );

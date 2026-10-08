@@ -21,14 +21,12 @@ import {
 import { Input } from "@/components/ui/input";
 import { BACKEND_URL, STORAGE_URL } from "@/lib/constant";
 import { toast } from "sonner";
-import { FavoriteMovie } from "@/lib/types";
+import { FavoriteMovie, SortOption } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 
 interface FavoritesClientProps {
   initialFavorites: FavoriteMovie[];
 }
-
-type SortOption = "LATEST" | "RATING_DESC" | "TITLE_ASC";
 
 export default function FavoritesClient({
   initialFavorites,
@@ -64,9 +62,7 @@ export default function FavoritesClient({
     )
     .sort((a, b) => {
       if (sortBy === "TITLE_ASC") return a.title.localeCompare(b.title);
-      return (
-        new Date(b.addedAt).getTime() - new Date(a.addedAt).getTime()
-      );
+      return new Date(b.addedAt).getTime() - new Date(a.addedAt).getTime();
     });
 
   const formatPosterUrl = (posterUrl: string | null) => {
