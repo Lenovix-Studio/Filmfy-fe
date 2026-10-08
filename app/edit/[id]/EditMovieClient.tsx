@@ -226,11 +226,11 @@ export default function EditMovieClient({ movie }: { movie: any }) {
     {/* Media Section */}
     <div className="bg-slate-900/60 p-6 md:p-8 rounded-2xl border border-slate-800 space-y-6">
       <h2 className="text-lg font-semibold text-white border-b border-slate-800 pb-3">Media Film</h2>
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 h-100">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 h-96">
         {/* Cover */}
-        <div className="relative border-2 border-dashed border-slate-700 rounded-xl bg-slate-800 flex items-center justify-center p-2">
+        <div className="relative border-2 border-dashed border-slate-700 rounded-xl bg-slate-800 flex items-center justify-center p-2 h-full overflow-hidden">
           {coverPreview ? (
-            <div className="relative w-full h-full">
+            <div className="relative w-full h-full flex items-center justify-center">
               <Image src={coverPreview} alt="Cover" fill className="object-contain" unoptimized />
               <Button size="xs" variant="destructive" className="absolute top-2 right-2" onClick={() => setCoverPreview(null)}>X</Button>
             </div>
@@ -243,9 +243,9 @@ export default function EditMovieClient({ movie }: { movie: any }) {
           )}
         </div>
         {/* Video */}
-        <div className="md:col-span-2 relative border-2 border-dashed border-slate-700 rounded-xl bg-slate-800 flex items-center justify-center p-2">
+        <div className="md:col-span-2 relative border-2 border-dashed border-slate-700 rounded-xl bg-slate-800 flex items-center justify-center p-2 h-full overflow-hidden">
           {videoPreview ? (
-            <video src={videoPreview} controls className="w-full h-full object-contain" />
+            <video src={videoPreview} controls className="w-full h-full max-h-full object-contain" />
           ) : (
             <label className="cursor-pointer">
               <span>Upload Video</span>
@@ -255,14 +255,14 @@ export default function EditMovieClient({ movie }: { movie: any }) {
         </div>
       </div>
       {/* Gallery */}
-      <div className="bg-slate-800/50 p-4 rounded-xl border border-slate-700">
-        <div className="flex justify-between items-center mb-3">
+      <div className="bg-slate-800/50 p-4 rounded-xl border border-slate-700 h-48 overflow-hidden flex flex-col">
+        <div className="flex justify-between items-center mb-3 shrink-0">
           <Label>Gallery</Label>
           <label className="bg-indigo-600 px-3 py-1 rounded cursor-pointer text-xs">Tambah Foto
             <input type="file" multiple accept="image/*" onChange={handleAddGallery} className="hidden" />
           </label>
         </div>
-        <div className="flex gap-3 overflow-x-auto pb-2">
+        <div className="flex gap-3 overflow-x-auto pb-2 flex-1 min-h-0">
           {galleryPreviews.map((url, idx) => (
             <div key={idx} className="relative shrink-0 w-32 h-20">
               <Image src={url} alt="Gal" fill className="object-cover" unoptimized />
