@@ -10,9 +10,10 @@ import { Movie } from "@/lib/types";
 
 export interface MovieCardProps {
   movie: Movie;
+  priority?: boolean;
 }
 
-export const MovieCard: React.FC<MovieCardProps> = ({ movie }) => {
+export const MovieCard: React.FC<MovieCardProps> = ({ movie, priority = false }) => {
   return (
     <Link href={`/movie/${movie.id}`}>
       <Card className="group relative overflow-hidden transition-all duration-300 bg-white border border-slate-200/80 hover:border-rose-200 hover:shadow-xl hover:shadow-rose-500/10 hover:-translate-y-1 rounded-2xl flex flex-col h-80 p-0">
@@ -21,8 +22,10 @@ export const MovieCard: React.FC<MovieCardProps> = ({ movie }) => {
               src={movie.posterUrl}
               alt={movie.title}
               fill
-              loading="lazy"
+              loading={priority ? "eager" : "lazy"}
+              priority={priority}
               unoptimized
+              sizes="(max-width: 640px) 50vw, (max-width: 768px) 33vw, (max-width: 1024px) 25vw, 20vw"
               className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
             />
 

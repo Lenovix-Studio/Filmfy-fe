@@ -5,6 +5,7 @@ import { MovieDetailBackend } from "@/lib/types";
 import MovieDetailClient from "./MovieDetailClient";
 import Header from "@/components/Header";
 import { Metadata } from "next";
+import { VideoPlayer } from "@/components/movie/VideoPlayer";
 
 export const dynamic = "force-dynamic";
 
@@ -105,16 +106,7 @@ export default async function MovieDetailPage({ params }: MovieDetailProps) {
           <section className="space-y-3">
             <div className="relative w-full aspect-video bg-black rounded-2xl overflow-hidden shadow-2xl border border-slate-800">
               {videoUrl ? (
-                <video
-                  src={videoUrl}
-                  controls
-                  controlsList="nodownload"
-                  poster={coverUrl}
-                  preload="metadata"
-                  className="w-full h-full object-contain"
-                >
-                  Browser Anda tidak mendukung tag video.
-                </video>
+                <VideoPlayer src={videoUrl} poster={coverUrl} movieId={id} />
               ) : (
                 <div className="w-full h-full flex flex-col items-center justify-center text-slate-500 gap-2">
                   <svg
