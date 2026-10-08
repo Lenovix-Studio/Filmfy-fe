@@ -302,31 +302,35 @@ export default async function MovieDetailPage({ params }: MovieDetailProps) {
             </aside>
           </section>
 
-          {/* SCREENSHOTS SECTION */}
-          {movie.images?.filter((img) => img.image_type === "screenshot")
-            .length > 0 && (
-              <section className="space-y-4">
-                <h3 className="text-xl font-semibold text-white">Screenshots</h3>
-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                  {movie.images
-                    .filter((img) => img.image_type === "screenshot")
-                    .map((img) => (
-                      <div
-                        key={img.id}
-                        className="relative aspect-video rounded-xl overflow-hidden border border-slate-800 bg-slate-900 shadow-xl"
-                      >
-                        <Image
-                          src={formatMediaUrl(img.file_path)}
-                          alt="Screenshot"
-                          fill
-                          unoptimized
-                          className="object-cover hover:scale-105 transition-transform duration-500"
-                        />
-                      </div>
-                    ))}
-                </div>
-              </section>
-            )}
+          {/* GALLERY & SCREENSHOTS SECTION */}
+          {movie.images?.filter(
+            (img) => img.image_type === "gallery" || img.image_type === "screenshot"
+          ).length > 0 && (
+            <section className="space-y-4">
+              <h3 className="text-xl font-semibold text-white">Galeri Foto</h3>
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                {movie.images
+                  .filter(
+                    (img) =>
+                      img.image_type === "gallery" || img.image_type === "screenshot"
+                  )
+                  .map((img) => (
+                    <div
+                      key={img.id}
+                      className="relative aspect-video rounded-xl overflow-hidden border border-slate-800 bg-slate-900 shadow-xl group"
+                    >
+                      <Image
+                        src={formatMediaUrl(img.file_path)}
+                        alt="Galeri"
+                        fill
+                        unoptimized
+                        className="object-cover group-hover:scale-105 transition-transform duration-500"
+                      />
+                    </div>
+                  ))}
+              </div>
+            </section>
+          )}
         </div>
       </main>
     </>
