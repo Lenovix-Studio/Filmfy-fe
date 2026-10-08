@@ -15,17 +15,50 @@ import Image from "next/image";
 export default function EditMovieClient({ movie }: { movie: any }) {
   const router = useRouter();
 
-  const [formData, setFormData] = useState({
-    title: movie.title || "",
-    code: movie.code || "",
-    overview: movie.overview || "",
-    director: movie.directors?.map((d: any) => d.name).join(", ") || "",
-    studio: movie.studios?.map((s: any) => s.name).join(", ") || "",
-    label: movie.labels?.map((l: any) => l.name).join(", ") || "",
-    series: movie.series?.map((s: any) => s.name).join(", ") || "",
-    genre: movie.genres?.map((g: any) => g.name).join(", ") || "",
-    cast: movie.casts?.map((c: any) => c.name).join(", ") || "",
-  });
+  const [coverFile, setCoverFile] = useState<File | null>(null);
+  const [coverPreview, setCoverPreview] = useState<string | null>(
+    movie.images?.find((img) => img.image_type === "cover")
+      ? formatMediaUrl(movie.images.find((img) => img.image_type === "cover")!.file_path)
+      : null,
+  );
+  const [videoFile, setVideoFile] = useState<File | null>(null);
+  const [videoPreview, setVideoPreview] = useState<string | null>(
+    movie.files && movie.files.length > 0
+      ? formatMediaUrl(movie.files[0].file_path)
+      : null,
+  );
+  const [galleryPreviews, setGalleryPreviews] = useState<string[]>(
+    movie.images
+      ?.filter((img) => img.image_type === "gallery")
+      .map((img) => formatMediaUrl(img.file_path)) || [],
+  );
+  const [galleryFiles, setGalleryFiles] = useState<File[]>([]);
+
+  const handleCoverChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setCoverFile(file);
+    const reader = new FileReader();
+    reader.onloadend = () => setCoverPreview(reader.result as string);
+    reader.readAsDataURL(file);
+  };
+
+  const handleVideoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setVideoFile(file);
+    setVideoPreview(URL.createObjectURL(file));
+  };
+
+  const handleAddGallery = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
+    const newFiles = [...galleryFiles, ...files];
+    const newPreviews = [...galleryPreviews];
+    files.forEach((f) => newPreviews.push(URL.createObjectURL(f)));
+    setGalleryFiles(newFiles);
+    setGalleryPreviews(newPreviews);
+  };
 
   const [isSaving, setIsSaving] = useState(false);
   const [images, setImages] = useState<any[]>(movie.images || []);
@@ -179,6 +212,60 @@ export default function EditMovieClient({ movie }: { movie: any }) {
       />
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-8 pb-16 space-y-8">
+        {/* Media Container Replicated from Upload */}
+        <div className="bg-slate-900/60 p-6 md:p-8 rounded-2xl border border-slate-800 space-y-6">
+          <h2 className="text-lg font-semibold text-white border-b border-slate-800 pb-3">
+            Media Film
+          </h2>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 h-[400px]">
+            {/* Cover */}
+            <div className="relative border-2 border-dashed border-slate-700 rounded-xl bg-slate-800 flex items-center justify-center p-2 text-center group overflow-hidden">
+              {coverPreview ? (
+                <div className="relative w-full h-full">
+                  <Image src={coverPreview} alt="Cover" fill className="object-contain" unoptimized />
+                  <div className="absolute top-2 right-2 flex gap-1">
+                     <Button type="button" size="sm" variant="destructive" onClick={() => setCoverPreview(null)}>X</Button>
+                  </div>
+                </div>
+              ) : (
+                <label className="cursor-pointer">
+                   <ImageIcon className="w-8 h-8 mx-auto" />
+                   <span>Upload Cover</span>
+                   <input type="file" accept="image/*" onChange={handleCoverChange} className="hidden" />
+                </label>
+              )}
+            </div>
+            {/* Video */}
+            <div className="md:col-span-2 relative border-2 border-dashed border-slate-700 rounded-xl bg-slate-800 flex items-center justify-center p-2 text-center group overflow-hidden">
+              {videoPreview ? (
+                <video src={videoPreview} controls className="w-full h-full object-contain" />
+              ) : (
+                <label className="cursor-pointer">
+                   <span>Upload Video</span>
+                   <input type="file" accept="video/*" onChange={handleVideoChange} className="hidden" />
+                </label>
+              )}
+            </div>
+          </div>
+          {/* Gallery */}
+          <div className="bg-slate-800/50 p-4 rounded-xl border border-slate-700">
+            <div className="flex justify-between items-center mb-3">
+              <Label>Gallery</Label>
+              <label className="bg-indigo-600 px-3 py-1 rounded cursor-pointer text-xs">Tambah Foto
+                <input type="file" multiple accept="image/*" onChange={handleAddGallery} className="hidden" />
+              </label>
+            </div>
+            <div className="flex gap-3 overflow-x-auto pb-2">
+              {galleryPreviews.map((url, idx) => (
+                <div key={idx} className="relative shrink-0 w-32 h-20">
+                  <Image src={url} alt="Gal" fill className="object-cover" unoptimized />
+                  <Button size="xs" variant="destructive" className="absolute top-0 right-0" onClick={() => setGalleryPreviews(prev => prev.filter((_,i) => i !== idx))}>X</Button>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
         <form
           id="edit-form"
           onSubmit={handleSubmit}
