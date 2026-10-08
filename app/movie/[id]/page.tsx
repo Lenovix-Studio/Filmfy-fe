@@ -110,6 +110,7 @@ export default async function MovieDetailPage({ params }: MovieDetailProps) {
                   controls
                   controlsList="nodownload"
                   poster={coverUrl}
+                  preload="metadata"
                   className="w-full h-full object-contain"
                 >
                   Browser Anda tidak mendukung tag video.
@@ -139,14 +140,15 @@ export default async function MovieDetailPage({ params }: MovieDetailProps) {
               <div className="flex flex-col md:flex-row items-start md:items-end gap-6 w-full">
                 {/* Poster Image */}
                 <div className="relative w-36 h-52 md:w-48 md:h-72 rounded-xl overflow-hidden shadow-2xl border-2 border-slate-700/50 shrink-0 bg-slate-800">
-                  <Image
-                    src={posterUrl}
-                    alt={movie.title}
-                    fill
-                    unoptimized
-                    sizes="(max-width: 768px) 144px, 192px"
-                    className="object-cover"
-                  />
+                    <Image
+                      src={posterUrl}
+                      alt={movie.title}
+                      fill
+                      unoptimized
+                      loading="lazy"
+                      sizes="(max-width: 768px) 144px, 192px"
+                      className="object-cover"
+                    />
                 </div>
 
                 {/* Title & Badges */}
@@ -324,6 +326,7 @@ export default async function MovieDetailPage({ params }: MovieDetailProps) {
                         alt="Galeri"
                         fill
                         unoptimized
+                        loading="lazy"
                         className="object-cover group-hover:scale-105 transition-transform duration-500"
                       />
                     </div>

@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useEffect, ChangeEvent, FormEvent } from "react";
+import axios from "axios";
+import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -49,6 +51,7 @@ export default function UploadClient({ statusOptions }: UploadClientProps) {
   const [galleryFiles, setGalleryFiles] = useState<File[]>([]);
   const [galleryPreviews, setGalleryPreviews] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+  const [uploadProgress, setUploadProgress] = useState<number>(0);
   const [activeTab, setActiveTab] = useState<string>("media");
   const [extractLink, setExtractLink] = useState("");
   const [extracting, setExtracting] = useState(false);
@@ -88,6 +91,16 @@ export default function UploadClient({ statusOptions }: UploadClientProps) {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    if (file.size > 50 * 1024 * 1024) {
+      toast.error("Cover max 50MB");
+      return;
+    }
+
+    if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
+      toast.error("Cover harus JPG/PNG/WEBP");
+      return;
+    }
+
     setCoverFile(file);
     const reader = new FileReader();
     reader.onloadend = () => setCoverPreview(reader.result as string);
@@ -97,10 +110,20 @@ export default function UploadClient({ statusOptions }: UploadClientProps) {
   const handleVideoChange = (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+      if (file.size > 15 * 1024 * 1024 * 1024) {
+        toast.error("Video max 15GB");
+        return;
+      }
+
+      if (!["video/mp4", "video/x-matroska", "video/webm", "video/quicktime", "video/x-msvideo"].includes(file.type)) {
+        toast.error("Format video tidak didukung");
+        return;
+      }
+
       setVideoFile(file);
       setVideoPreview(URL.createObjectURL(file));
 
-      // Extract duration
+      // Extract duration (metadata) as before
       const video = document.createElement("video");
       video.preload = "metadata";
       video.onloadedmetadata = () => {
@@ -124,6 +147,10 @@ export default function UploadClient({ statusOptions }: UploadClientProps) {
   }, []);
 
   const isDev = ENV;
+
+  const UploadSchema = z.object({
+    code: z.string().min(1, "Code wajib diisi"),
+  });
 
   const handleLoadTestData = () => {
     setFormData({
@@ -251,79 +278,97 @@ export default function UploadClient({ statusOptions }: UploadClientProps) {
     });
   };
 
-  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
+    const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
     if (isSubmitting) return;
 
-    if (!formData.code.trim()) {
-      toast.error("Code wajib diisi!");
+    const formDataObj = {
+      code: formData.code,
+      title: formData.title,
+      status: formData.status,
+      overview: formData.overview,
+      director: formData.director,
+      studio: formData.studio,
+      label: formData.label,
+      genres: formData.genres,
+      cast: formData.cast,
+      series: formData.series,
+      country: formData.country,
+      language: formData.language,
+      release_date: formData.release_date,
+      runtime_minutes: formData.runtime_minutes,
+    };
+
+    try {
+      UploadSchema.parse({
+        code: formData.code,
+      });
+    } catch (err: unknown) {
+      if (err instanceof z.ZodError) {
+        err.issues.forEach((e: z.ZodIssue) => toast.error(e.message));
+      }
       setActiveTab("metadata");
       return;
     }
 
     setIsSubmitting(true);
+    setUploadProgress(0);
 
     try {
-      const data = new FormData();
-
-      if (coverFile) data.append("cover", coverFile);
-      if (videoFile) data.append("video", videoFile);
-
-      data.append("code", formData.code.trim());
-      data.append("title", formData.title.trim() || formData.code.trim());
-      data.append("overview", formData.overview.trim());
-      if (formData.status) data.append("status", formData.status);
-      if (formData.country) data.append("country", formData.country);
-      if (formData.language) data.append("language", formData.language);
+      const form = new FormData();
+      if (coverFile) form.append("cover", coverFile);
+      if (videoFile) form.append("video", videoFile);
+      form.append("code", formData.code.trim());
+      form.append("title", formData.title.trim() || formData.code.trim());
+      form.append("overview", formData.overview.trim());
+      if (formData.status) form.append("status", formData.status);
+      if (formData.country) form.append("country", formData.country);
+      if (formData.language) form.append("language", formData.language);
       if (formData.release_date)
-        data.append("release_date", formData.release_date);
+        form.append("release_date", formData.release_date);
 
       const runtimeMinutes = videoFile
         ? await getVideoRuntimeMinutes(videoFile)
         : formData.runtime_minutes;
       if (runtimeMinutes > 0)
-        data.append("runtime_minutes", runtimeMinutes.toString());
+        form.append("runtime_minutes", runtimeMinutes.toString());
 
       const directorArray = parseCommaSeparated(formData.director);
-      directorArray.forEach((d) => data.append("director", d));
-
+      directorArray.forEach((d) => form.append("director", d));
       const studioArray = parseCommaSeparated(formData.studio);
-      studioArray.forEach((s) => data.append("studio", s));
-
+      studioArray.forEach((s) => form.append("studio", s));
       const labelArray = parseCommaSeparated(formData.label);
-      labelArray.forEach((l) => data.append("label", l));
-
+      labelArray.forEach((l) => form.append("label", l));
       const seriesArray = parseCommaSeparated(formData.series);
-      seriesArray.forEach((s) => data.append("series", s));
-
+      seriesArray.forEach((s) => form.append("series", s));
       const castArray = parseCommaSeparated(formData.cast);
-      castArray.forEach((c) => data.append("cast", c));
-
+      castArray.forEach((c) => form.append("cast", c));
       const genreArray = parseCommaSeparated(formData.genres);
-      genreArray.forEach((g) => data.append("genre", g));
+      genreArray.forEach((g) => form.append("genre", g));
 
       if (galleryFiles.length > 0) {
-        galleryFiles.forEach((file) => data.append("gallery", file));
+        galleryFiles.forEach((file) => form.append("gallery", file));
       }
 
-      const response = await fetch(`${BACKEND_URL}/movies/upload`, {
-        method: "POST",
-        body: data,
-      });
+      const response = await axios.post(
+        `${BACKEND_URL}/movies/upload`,
+        form,
+        {
+          headers: {
+            "Content-Type": "multipart/form-data",
+          },
+          onUploadProgress: (progressEvent) => {
+            const total = progressEvent.total || progressEvent.loaded;
+            const percentCompleted = Math.round(
+              (progressEvent.loaded * 100) / total
+            );
+            setUploadProgress(percentCompleted);
+          },
+        }
+      );
 
-      let result: any = null;
-      try {
-        result = await response.json();
-      } catch {}
-
-      if (!response.ok) {
-        throw new Error(
-          result?.message || `Upload gagal dengan status ${response.status}`,
-        );
-      }
-
-      toast.success(result?.message || "Film berhasil diunggah!");
+      toast.success(response.data?.message ?? "Film berhasil diunggah!");
 
       setFormData({
         code: "",
@@ -348,17 +393,20 @@ export default function UploadClient({ statusOptions }: UploadClientProps) {
       setGalleryFiles([]);
       setGalleryPreviews([]);
       setActiveTab("media");
-    } catch (error) {
+    } catch (error: any) {
       console.error("Upload failed:", error);
-      toast.error(
-        error instanceof Error
-          ? error.message
-          : "Terjadi kesalahan saat mengunggah film.",
-      );
+      const msg =
+        error.response?.data?.message ||
+        error.message ||
+        "Terjadi kesalahan saat mengunggah film.";
+      toast.error(msg);
     } finally {
       setIsSubmitting(false);
+      setUploadProgress(0);
     }
   };
+
+
 
   return (
     <div className="bg-white min-h-screen">
@@ -895,6 +943,21 @@ export default function UploadClient({ statusOptions }: UploadClientProps) {
             </TabsContent>
           </Tabs>
         </form>
+
+        {isSubmitting && (
+          <div className="max-w-7xl mx-auto px-4 sm:px-8 pb-6">
+            <div className="flex items-center justify-between text-xs font-medium text-slate-600 mb-1">
+              <span>Mengunggah...</span>
+              <span>{uploadProgress}%</span>
+            </div>
+            <div className="w-full h-2 bg-slate-200 rounded-full overflow-hidden">
+              <div
+                className="h-full bg-rose-600 transition-all duration-300"
+                style={{ width: `${uploadProgress}%` }}
+              />
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

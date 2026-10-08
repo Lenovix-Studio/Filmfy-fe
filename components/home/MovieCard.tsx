@@ -2,6 +2,7 @@
 
 import React from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { Bookmark, Heart, Star, Trash2 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -16,11 +17,14 @@ export const MovieCard: React.FC<MovieCardProps> = ({ movie }) => {
     <Link href={`/movie/${movie.id}`}>
       <Card className="group relative overflow-hidden transition-all duration-300 bg-white border border-slate-200/80 hover:border-rose-200 hover:shadow-xl hover:shadow-rose-500/10 hover:-translate-y-1 rounded-2xl flex flex-col h-80 p-0">
         <div className="relative aspect-2/3 w-full bg-slate-100 overflow-hidden">
-          <img
-            src={movie.posterUrl}
-            alt={movie.title}
-            className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-          />
+            <Image
+              src={movie.posterUrl}
+              alt={movie.title}
+              fill
+              loading="lazy"
+              unoptimized
+              className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+            />
 
           <div className="absolute top-2.5 left-2.5 right-2.5 flex items-center justify-between gap-1 pointer-events-none">
             {movie.status && (
