@@ -38,22 +38,21 @@ export default function EditMovieClient({ movie }: { movie: any }) {
     cast: movie.casts?.map((c: any) => c.name).join(", ") || "",
   });
 
+  // typed helpers for image arrays
+  const typedImages = movie.images as { id: string; image_type: string; file_path: string }[];
+  const typedGallery = typedImages?.filter((img) => img.image_type === "gallery");
+  const typedCover = typedImages?.find((img) => img.image_type === "cover");
+
   const [coverFile, setCoverFile] = useState<File | null>(null);
   const [coverPreview, setCoverPreview] = useState<string | null>(
-    movie.images?.find((img) => img.image_type === "cover")
-      ? formatMediaUrl(movie.images.find((img) => img.image_type === "cover").file_path)
-      : null,
+    typedCover ? formatMediaUrl(typedCover.file_path) : null,
   );
   const [videoFile, setVideoFile] = useState<File | null>(null);
   const [videoPreview, setVideoPreview] = useState<string | null>(
-    movie.files && movie.files.length > 0
-      ? formatMediaUrl(movie.files[0].file_path)
-      : null,
+    movie.files && movie.files.length > 0 ? formatMediaUrl(movie.files[0].file_path) : null,
   );
   const [galleryPreviews, setGalleryPreviews] = useState<string[]>(
-    movie.images
-      ?.filter((img) => img.image_type === "gallery")
-      .map((img) => formatMediaUrl(img.file_path)) || [],
+    typedGallery?.map((img) => formatMediaUrl(img.file_path)) || [],
   );
   const [galleryFiles, setGalleryFiles] = useState<File[]>([]);
 
@@ -227,7 +226,7 @@ export default function EditMovieClient({ movie }: { movie: any }) {
     {/* Media Section */}
     <div className="bg-slate-900/60 p-6 md:p-8 rounded-2xl border border-slate-800 space-y-6">
       <h2 className="text-lg font-semibold text-white border-b border-slate-800 pb-3">Media Film</h2>
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 h-[400px]">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 h-100">
         {/* Cover */}
         <div className="relative border-2 border-dashed border-slate-700 rounded-xl bg-slate-800 flex items-center justify-center p-2">
           {coverPreview ? (
