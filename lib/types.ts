@@ -128,3 +128,16 @@ export interface PendingImage {
   preview: string;
   isNew: true;
 }
+
+export interface CastDetailBackend {
+  id: string;
+  name: string;
+  bio: string | null;
+  profile_path: string | null;
+  images: {
+    id: string;
+    file_path: string;
+    image_type: string;
+  }[];
+  movies: any[];
+}

@@ -1,4 +1,5 @@
 import Image from "next/image";
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { BACKEND_URL, STORAGE_URL } from "@/lib/constant";
 import { MovieDetailBackend } from "@/lib/types";
@@ -223,12 +224,14 @@ export default async function MovieDetailPage({ params }: MovieDetailProps) {
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                   {movie.casts && movie.casts.length > 0 ? (
                     movie.casts.map((actor) => (
-                      <div
-                        key={actor.id}
-                        className="p-3 bg-slate-800/40 rounded-xl border border-slate-800/80 text-slate-200 text-sm font-medium"
-                      >
-                        {actor.name}
-                      </div>
+                      <Link href={`/cast/${actor.id}`}>
+                        <div
+                          key={actor.id}
+                          className="p-3 bg-slate-800/40 rounded-xl border border-slate-800/80 text-slate-200 text-sm font-medium"
+                        >
+                          {actor.name}
+                        </div>
+                      </Link>
                     ))
                   ) : (
                     <span className="text-slate-500 text-xs col-span-2">-</span>
