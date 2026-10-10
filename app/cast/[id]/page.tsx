@@ -21,13 +21,19 @@ async function getCast(id: string): Promise<CastDetailBackend | null> {
   }
 }
 
-export default async function CastPage({ params }: { params: { id: string } }) {
-  const cast = await getCast(params.id);
+export default async function CastPage({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
+  const { id } = await params;
+  const cast = await getCast(id);
   if (!cast) notFound();
 
   const format = (path: string) => {
     if (!path) return "";
     const clean = path.startsWith("/") ? path.slice(1) : path;
+    if (!STORAGE_URL) return clean;
     return `${STORAGE_URL}/${clean}`;
   };
 
@@ -35,13 +41,14 @@ export default async function CastPage({ params }: { params: { id: string } }) {
     <>
       <Header center={<h1 className="text-2xl font-bold">{cast.name}</h1>} />
       <main className="max-w-4xl mx-auto p-4 space-y-6">
-        {cast.profile_path && (
+        {cast.profile_path && STORAGE_URL && (
           <Image
             src={format(cast.profile_path)}
             alt={cast.name}
             width={200}
             height={200}
             className="rounded-full"
+            unoptimized
           />
         )}
         {cast.bio && <p className="text-lg">{cast.bio}</p>}

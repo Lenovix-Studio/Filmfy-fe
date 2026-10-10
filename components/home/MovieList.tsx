@@ -42,7 +42,7 @@ export const MovieList: React.FC<MovieListProps> = ({
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
         {Array.from({ length: 12 }).map((_, i) => (
           <div key={i} className="flex flex-col gap-2">
-            <Skeleton className="aspect-[2/3] w-full rounded-2xl" />
+            <Skeleton className="aspect-2/3 w-full rounded-2xl" />
             <Skeleton className="h-4 w-3/4" />
             <Skeleton className="h-3 w-1/2" />
           </div>
@@ -61,13 +61,15 @@ export const MovieList: React.FC<MovieListProps> = ({
     );
   }
 
-
   return (
     <>
-      <div ref={parentRef} className="overflow-auto" style={{ height: "calc(100vh - 200px)" }}>
+      <div ref={parentRef}>
         <div
-          className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4"
-          style={{ height: `${virtualizer.getTotalSize()}px`, position: "relative" }}
+          className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4"
+          style={{
+            height: `${virtualizer.getTotalSize()}px`,
+            position: "relative",
+          }}
         >
           {virtualizer.getVirtualItems().map((virtualRow) => {
             const startIdx = virtualRow.index * cols;
@@ -84,7 +86,11 @@ export const MovieList: React.FC<MovieListProps> = ({
                 className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4"
               >
                 {items.map((movie, idx) => (
-                  <MovieCard key={movie.id} movie={movie} priority={idx === 0} />
+                  <MovieCard
+                    key={movie.id}
+                    movie={movie}
+                    priority={idx === 0}
+                  />
                 ))}
               </div>
             );

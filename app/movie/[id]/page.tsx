@@ -96,7 +96,7 @@ export default async function MovieDetailPage({ params }: MovieDetailProps) {
     <>
       <Header
         center={
-          <h1 className="text-2xl font-bold tracking-tight text-black">
+          <h1 className="text-2xl font-bold tracking-tight text-black uppercase">
             {movie.code}
           </h1>
         }
@@ -224,7 +224,7 @@ export default async function MovieDetailPage({ params }: MovieDetailProps) {
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                   {movie.casts && movie.casts.length > 0 ? (
                     movie.casts.map((actor) => (
-                      <Link href={`/cast/${actor.id}`}>
+                      <Link key={actor.id} href={`/cast/${actor.id}`}>
                         <div
                           key={actor.id}
                           className="p-3 bg-slate-800/40 rounded-xl border border-slate-800/80 text-slate-200 text-sm font-medium"

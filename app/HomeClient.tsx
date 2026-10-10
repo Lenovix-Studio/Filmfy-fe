@@ -104,7 +104,7 @@ export default function HomeClient({
         }
       />
       <div className="bg-background text-foreground font-sans selection:bg-rose-500 selection:text-white">
-        <main className="max-w-7xl mx-auto px-4 sm:px-8 py-3 space-y-6">
+        <main className="max-w-7xl mx-auto px-4 sm:px-8 py-3">
           <MovieFilter
             tabs={initialFilterTabs}
             activeFilter={activeFilter}

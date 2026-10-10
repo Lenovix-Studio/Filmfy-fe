@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, ChangeEvent, FormEvent } from "react";
+import { useState, useEffect, ChangeEvent, FormEvent, useRef } from "react";
 import axios from "axios";
 import { z } from "zod";
 import { Button } from "@/components/ui/button";
@@ -44,6 +44,8 @@ interface UploadClientProps {
 }
 
 export default function UploadClient({ statusOptions }: UploadClientProps) {
+  const uploadToastIdRef = useRef<string | number | null>(null);
+
   const [coverFile, setCoverFile] = useState<File | null>(null);
   const [coverPreview, setCoverPreview] = useState<string | null>(null);
   const [videoFile, setVideoFile] = useState<File | null>(null);
@@ -52,6 +54,7 @@ export default function UploadClient({ statusOptions }: UploadClientProps) {
   const [galleryPreviews, setGalleryPreviews] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [uploadProgress, setUploadProgress] = useState<number>(0);
+  const [uploadError, setUploadError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<string>("media");
   const [extractLink, setExtractLink] = useState("");
   const [extracting, setExtracting] = useState(false);
@@ -285,6 +288,23 @@ export default function UploadClient({ statusOptions }: UploadClientProps) {
     });
   };
 
+  useEffect(() => {
+    if (!isSubmitting || uploadError) {
+      return;
+    }
+
+    if (!uploadToastIdRef.current) {
+      uploadToastIdRef.current = toast.loading("Mengunggah file...", {
+        description: `Progress: ${uploadProgress}%`,
+      });
+    } else {
+      toast.loading("Mengunggah file...", {
+        id: uploadToastIdRef.current,
+        description: `Progress: ${uploadProgress}%`,
+      });
+    }
+  }, [isSubmitting, uploadProgress, uploadError]);
+
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
@@ -304,6 +324,11 @@ export default function UploadClient({ statusOptions }: UploadClientProps) {
 
     setIsSubmitting(true);
     setUploadProgress(0);
+    setUploadError(null);
+
+    uploadToastIdRef.current = toast.loading("Mengunggah file...", {
+      description: "Progress: 0%",
+    });
 
     try {
       const form = new FormData();
@@ -351,10 +376,22 @@ export default function UploadClient({ statusOptions }: UploadClientProps) {
             (progressEvent.loaded * 100) / total,
           );
           setUploadProgress(percentCompleted);
+
+          if (uploadToastIdRef.current) {
+            toast.loading("Mengunggah file...", {
+              id: uploadToastIdRef.current,
+              description: `Progress: ${percentCompleted}%`,
+            });
+          }
         },
       });
 
-      toast.success(response.data?.message ?? "Film berhasil diunggah!");
+      const successMsg = response.data?.message ?? "Film berhasil diunggah!";
+
+      if (uploadToastIdRef.current) {
+        toast.success(successMsg, { id: uploadToastIdRef.current });
+        uploadToastIdRef.current = null;
+      }
 
       setFormData({
         code: "",
@@ -385,17 +422,29 @@ export default function UploadClient({ statusOptions }: UploadClientProps) {
         error.response?.data?.message ||
         error.message ||
         "Terjadi kesalahan saat mengunggah film.";
-      toast.error(msg);
+
+      setUploadError(msg);
+
+      if (uploadToastIdRef.current) {
+        toast.error(msg, {
+          id: uploadToastIdRef.current,
+          description: undefined,
+        });
+        uploadToastIdRef.current = null;
+      } else {
+        toast.error(msg);
+      }
     } finally {
       setIsSubmitting(false);
       setUploadProgress(0);
+      uploadToastIdRef.current = null;
     }
   };
 
   return (
     <div className="bg-white min-h-screen">
       <Header
-        center={<h1>Upload Film</h1>}
+        center={false}
         right={
           <div className="flex items-center gap-2">
             {mounted && isDev && (
@@ -927,21 +976,6 @@ export default function UploadClient({ statusOptions }: UploadClientProps) {
             </TabsContent>
           </Tabs>
         </form>
-
-        {isSubmitting && (
-          <div className="max-w-7xl mx-auto px-4 sm:px-8 pb-6">
-            <div className="flex items-center justify-between text-xs font-medium text-slate-600 mb-1">
-              <span>Mengunggah...</span>
-              <span>{uploadProgress}%</span>
-            </div>
-            <div className="w-full h-2 bg-slate-200 rounded-full overflow-hidden">
-              <div
-                className="h-full bg-rose-600 transition-all duration-300"
-                style={{ width: `${uploadProgress}%` }}
-              />
-            </div>
-          </div>
-        )}
       </div>
     </div>
   );
