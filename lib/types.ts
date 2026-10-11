@@ -38,7 +38,7 @@ export interface MovieDetailBackend {
   labels: { id: string; name: string }[];
   genres: { id: string; name: string }[];
   directors: { id: string; name: string }[];
-  casts: { id: string; name: string }[];
+  casts: { id: string; name: string; display_name?: string }[];
   images: {
     id: string;
     movie_id: string;
@@ -132,6 +132,8 @@ export interface PendingImage {
 export interface CastDetailBackend {
   id: string;
   name: string;
+  display_name?: string;
+  other_name?: string;
   bio: string | null;
   profile_path: string | null;
   images: {
@@ -139,5 +141,5 @@ export interface CastDetailBackend {
     file_path: string;
     image_type: string;
   }[];
-  movies: any[];
+  movies: { id: string; title: string }[];
 }

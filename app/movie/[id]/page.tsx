@@ -229,7 +229,7 @@ export default async function MovieDetailPage({ params }: MovieDetailProps) {
                           key={actor.id}
                           className="p-3 bg-slate-800/40 rounded-xl border border-slate-800/80 text-slate-200 text-sm font-medium"
                         >
-                          {actor.name}
+                          {actor.display_name || actor.name}
                         </div>
                       </Link>
                     ))
