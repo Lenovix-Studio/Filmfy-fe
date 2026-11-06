@@ -30,6 +30,7 @@ export default function EditMovieClient({ movie }: { movie: any }) {
   const [formData, setFormData] = useState({
     title: movie.title || "",
     code: movie.code || "",
+    status: movie.status || "WATCHED",
     overview: movie.overview || "",
     director: movie.directors?.map((d: any) => d.name).join(", ") || "",
     studio: movie.studios?.map((s: any) => s.name).join(", ") || "",
@@ -111,6 +112,7 @@ export default function EditMovieClient({ movie }: { movie: any }) {
     const payload = {
       title: formData.title,
       code: formData.code,
+      status: formData.status,
       overview: formData.overview,
       director: formData.director
         .split(",")
@@ -393,7 +395,7 @@ export default function EditMovieClient({ movie }: { movie: any }) {
             Informasi Utama
           </h2>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div className="space-y-2">
               <Label htmlFor="code" className="text-slate-300">
                 Kode Film
@@ -417,6 +419,23 @@ export default function EditMovieClient({ movie }: { movie: any }) {
                 onChange={handleInputChange}
                 className="bg-slate-800 border-slate-700 text-white"
               />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="status" className="text-slate-300">
+                Status
+              </Label>
+              <select
+                id="status"
+                name="status"
+                value={formData.status}
+                onChange={(e) =>
+                  setFormData({ ...formData, status: e.target.value })
+                }
+                className="w-full h-9 rounded-md bg-slate-800 border border-slate-700 text-white px-3 text-sm focus:outline-hidden focus:ring-1 focus:ring-indigo-500"
+              >
+                <option value="WATCHED">WATCHED</option>
+                <option value="DELETED">DELETED</option>
+              </select>
             </div>
           </div>
 

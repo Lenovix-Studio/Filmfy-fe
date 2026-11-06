@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { Heart, Upload, Settings, Search } from "lucide-react";
+import { Heart, Upload, Settings, Search, Users } from "lucide-react";
 import Header from "@/components/Header";
 import { Input } from "@/components/ui/input";
 import { Movie } from "@/lib/types";
@@ -19,11 +20,24 @@ export default function HomeClient({
   initialMovies,
   initialFilterTabs,
 }: HomeClientProps) {
+  const router = useRouter();
   const ITEMS_PER_PAGE = 8;
-  const [movies] = useState<Movie[]>(initialMovies);
+  const [movies, setMovies] = useState<Movie[]>(initialMovies);
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [activeFilter, setActiveFilter] = useState<string>("ALL");
   const [currentPage, setCurrentPage] = useState(1);
+
+  useEffect(() => {
+    setMovies(initialMovies);
+  }, [initialMovies]);
+
+  useEffect(() => {
+    const handleFocus = () => {
+      router.refresh();
+    };
+    window.addEventListener("focus", handleFocus);
+    return () => window.removeEventListener("focus", handleFocus);
+  }, [router]);
 
   const filteredMovies = movies.filter((movie) => {
     const titleMatch = (movie?.title || "")
@@ -72,6 +86,16 @@ export default function HomeClient({
         }
         right={
           <div className="gap-2 flex items-center">
+            <Button
+              variant="outline"
+              size="lg"
+              className="rounded-xl hidden md:flex border-slate-200 text-slate-700 hover:bg-slate-50 hover:text-indigo-600"
+            >
+              <Link href="/casts" className="flex items-center gap-2">
+                <Users className="w-4 h-4 text-indigo-500" />
+                <span>Casts</span>
+              </Link>
+            </Button>
             <Button
               variant="outline"
               size="lg"

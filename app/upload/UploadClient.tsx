@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, ChangeEvent, FormEvent, useRef } from "react";
+import { useRouter } from "next/navigation";
 import axios from "axios";
 import { z } from "zod";
 import { Button } from "@/components/ui/button";
@@ -44,6 +45,7 @@ interface UploadClientProps {
 }
 
 export default function UploadClient({ statusOptions }: UploadClientProps) {
+  const router = useRouter();
   const uploadToastIdRef = useRef<string | number | null>(null);
 
   const [coverFile, setCoverFile] = useState<File | null>(null);
@@ -52,6 +54,7 @@ export default function UploadClient({ statusOptions }: UploadClientProps) {
   const [videoPreview, setVideoPreview] = useState<string | null>(null);
   const [galleryFiles, setGalleryFiles] = useState<File[]>([]);
   const [galleryPreviews, setGalleryPreviews] = useState<string[]>([]);
+  const [trailerUrl, setTrailerUrl] = useState<string>("");
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [uploadProgress, setUploadProgress] = useState<number>(0);
   const [uploadError, setUploadError] = useState<string | null>(null);
@@ -99,8 +102,13 @@ export default function UploadClient({ statusOptions }: UploadClientProps) {
       return;
     }
 
-    if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
-      toast.error("Cover harus JPG/PNG/WEBP");
+    if (
+      !["image/jpeg", "image/png", "image/webp", "image/gif"].includes(
+        file.type,
+      ) &&
+      !file.name.toLowerCase().endsWith(".gif")
+    ) {
+      toast.error("Cover harus JPG/PNG/WEBP/GIF");
       return;
     }
 
@@ -118,16 +126,13 @@ export default function UploadClient({ statusOptions }: UploadClientProps) {
         return;
       }
 
-      if (
-        ![
-          "video/mp4",
-          "video/x-matroska",
-          "video/webm",
-          "video/quicktime",
-          "video/x-msvideo",
-        ].includes(file.type)
-      ) {
-        toast.error("Format video tidak didukung");
+      const isSupportedType =
+        ["video/mp4", "video/webm"].includes(file.type) ||
+        file.name.toLowerCase().endsWith(".mp4") ||
+        file.name.toLowerCase().endsWith(".webm");
+
+      if (!isSupportedType) {
+        toast.error("Format video harus MP4 atau WebM (streaming web)");
         return;
       }
 
@@ -416,6 +421,7 @@ export default function UploadClient({ statusOptions }: UploadClientProps) {
       setGalleryFiles([]);
       setGalleryPreviews([]);
       setActiveTab("media");
+      router.refresh();
     } catch (error: any) {
       console.error("Upload failed:", error);
       const msg =
@@ -605,7 +611,7 @@ export default function UploadClient({ statusOptions }: UploadClientProps) {
                           Upload Gambar Cover
                         </Label>
                         <span className="text-[10px] font-medium text-slate-400 mt-0.5">
-                          PNG, JPG, WEBP (Boleh Kosong)
+                          PNG, JPG, WEBP, GIF (Boleh Kosong)
                         </span>
                         <input
                           type="file"
@@ -663,11 +669,11 @@ export default function UploadClient({ statusOptions }: UploadClientProps) {
                           Pilih File Video
                         </Label>
                         <span className="text-[10px] text-slate-400 font-medium mt-1">
-                          MP4, MKV, AVI, WebM (Boleh Kosong)
+                          MP4, WebM (Boleh Kosong)
                         </span>
                         <input
                           type="file"
-                          accept="video/*"
+                          accept="video/mp4,video/webm"
                           onChange={handleVideoChange}
                           disabled={isSubmitting}
                           className="hidden"
@@ -675,40 +681,95 @@ export default function UploadClient({ statusOptions }: UploadClientProps) {
                       </Label>
                     )}
                   </div>
+
+                  {/* Optional Trailer URL Input */}
+                  <div className="mt-2.5 pt-2 border-t border-slate-200">
+                    <div className="flex items-center justify-between mb-1">
+                      <Label
+                        htmlFor="trailerUrl"
+                        className="text-xs font-semibold text-slate-700 flex items-center gap-1.5"
+                      >
+                        <Film className="w-3.5 h-3.5 text-indigo-500" />
+                        Trailer URL (Opsional)
+                      </Label>
+                      <span className="text-[10px] text-slate-400">
+                        Untuk auto download trailer
+                      </span>
+                    </div>
+                    <Input
+                      id="trailerUrl"
+                      type="url"
+                      value={trailerUrl}
+                      onChange={(e) => setTrailerUrl(e.target.value)}
+                      placeholder="https://example.com/trailer.mp4"
+                      disabled={isSubmitting}
+                      className="h-8 text-xs bg-white border-slate-200 focus-visible:ring-indigo-500"
+                    />
+                  </div>
                 </div>
               </div>
 
               {/* Row 2: Gallery below */}
               <div className="bg-slate-50/50 p-4 rounded-xl border border-slate-200 flex-1 min-h-0 overflow-hidden flex flex-col">
                 <div className="flex items-center justify-between mb-3">
-                  <Label className="text-sm font-semibold text-slate-700">
-                    Gallery
-                  </Label>
-                  <label className="cursor-pointer bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 px-3 py-1.5 rounded-lg text-xs font-medium shadow-xs transition-colors flex items-center gap-1.5">
-                    <ImageIcon className="w-3.5 h-3.5 text-slate-500" />
-                    Tambah Foto
-                    <input
-                      type="file"
-                      accept="image/*"
-                      multiple
-                      onChange={(e) => {
-                        const files = Array.from(e.target.files || []);
-                        if (files.length === 0) return;
+                  <div className="flex items-center gap-2">
+                    <Label className="text-sm font-semibold text-slate-700">
+                      Gallery
+                    </Label>
+                    {galleryPreviews.length > 0 && (
+                      <span className="text-xs bg-slate-200 text-slate-700 px-2 py-0.5 rounded-full font-medium">
+                        {galleryPreviews.length} foto
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {galleryPreviews.length > 0 && (
+                      <Button
+                        type="button"
+                        variant="destructive"
+                        size="sm"
+                        disabled={isSubmitting}
+                        onClick={() => {
+                          galleryPreviews.forEach((url) => {
+                            try {
+                              URL.revokeObjectURL(url);
+                            } catch {}
+                          });
+                          setGalleryFiles([]);
+                          setGalleryPreviews([]);
+                          toast.info("Semua foto galeri dibersihkan");
+                        }}
+                        className="h-7 px-2.5 text-xs font-medium"
+                      >
+                        Clear All
+                      </Button>
+                    )}
+                    <label className="cursor-pointer bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 px-3 py-1.5 rounded-lg text-xs font-medium shadow-xs transition-colors flex items-center gap-1.5">
+                      <ImageIcon className="w-3.5 h-3.5 text-slate-500" />
+                      Tambah Foto
+                      <input
+                        type="file"
+                        accept="image/*"
+                        multiple
+                        onChange={(e) => {
+                          const files = Array.from(e.target.files || []);
+                          if (files.length === 0) return;
 
-                        const newFiles = [...galleryFiles, ...files];
-                        const newPreviews = [...galleryPreviews];
+                          const newFiles = [...galleryFiles, ...files];
+                          const newPreviews = [...galleryPreviews];
 
-                        files.forEach((file) => {
-                          newPreviews.push(URL.createObjectURL(file));
-                        });
+                          files.forEach((file) => {
+                            newPreviews.push(URL.createObjectURL(file));
+                          });
 
-                        setGalleryFiles(newFiles);
-                        setGalleryPreviews(newPreviews);
-                      }}
-                      disabled={isSubmitting}
-                      className="hidden"
-                    />
-                  </label>
+                          setGalleryFiles(newFiles);
+                          setGalleryPreviews(newPreviews);
+                        }}
+                        disabled={isSubmitting}
+                        className="hidden"
+                      />
+                    </label>
+                  </div>
                 </div>
 
                 {galleryPreviews.length === 0 ? (

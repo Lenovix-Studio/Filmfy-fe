@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { BACKEND_URL, STORAGE_URL } from "@/lib/constant";
 import { MovieDetailBackend } from "@/lib/types";
 import MovieDetailClient from "./MovieDetailClient";
+import GalleryLightbox from "./GalleryLightbox";
 import Header from "@/components/Header";
 import { Metadata } from "next";
 import { VideoPlayer } from "@/components/movie/VideoPlayer";
@@ -284,16 +285,16 @@ export default async function MovieDetailPage({ params }: MovieDetailProps) {
                     </span>
                   </div>
 
-                  {movie.series && movie.series.length > 0 && (
-                    <div>
-                      <span className="text-slate-400 block text-xs uppercase tracking-wider mb-1">
-                        Seri (Series)
-                      </span>
-                      <span className="text-amber-400 font-medium">
-                        {movie.series.map((s) => s.name).join(", ")}
-                      </span>
-                    </div>
-                  )}
+                  <div>
+                    <span className="text-slate-400 block text-xs uppercase tracking-wider mb-1">
+                      Seri (Series)
+                    </span>
+                    <span className="text-amber-400 font-medium">
+                      {movie.series && movie.series.length > 0
+                        ? movie.series.map((s) => s.name).join(", ")
+                        : "-"}
+                    </span>
+                  </div>
                 </div>
               </div>
             </aside>
@@ -306,29 +307,18 @@ export default async function MovieDetailPage({ params }: MovieDetailProps) {
           ).length > 0 && (
             <section className="space-y-4">
               <h3 className="text-xl font-semibold text-white">Galeri Foto</h3>
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                {movie.images
+              <GalleryLightbox
+                images={movie.images
                   .filter(
                     (img) =>
                       img.image_type === "gallery" ||
                       img.image_type === "screenshot",
                   )
-                  .map((img) => (
-                    <div
-                      key={img.id}
-                      className="relative aspect-video rounded-xl overflow-hidden border border-slate-800 bg-slate-900 shadow-xl group"
-                    >
-                      <Image
-                        src={formatMediaUrl(img.file_path)}
-                        alt="Galeri"
-                        fill
-                        unoptimized
-                        loading="lazy"
-                        className="object-cover group-hover:scale-105 transition-transform duration-500"
-                      />
-                    </div>
-                  ))}
-              </div>
+                  .map((img) => ({
+                    id: img.id,
+                    url: formatMediaUrl(img.file_path),
+                  }))}
+              />
             </section>
           )}
         </div>
