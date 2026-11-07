@@ -486,19 +486,41 @@ export default function UploadClient({ statusOptions }: UploadClientProps) {
                 <DialogHeader>
                   <DialogTitle>Extract metadata</DialogTitle>
                 </DialogHeader>
-                <div className="space-y-2">
-                  <label className="text-sm font-medium" htmlFor="extract-code">
-                    Code
-                  </label>
-                  <input
-                    id="extract-code"
-                    type="text"
-                    placeholder="misal: EBOD-391"
-                    value={extractLink}
-                    onChange={(e) => setExtractLink(e.target.value)}
-                    className="w-full rounded border p-2"
-                    disabled={isSubmitting || extracting}
-                  />
+                <div className="space-y-3">
+                  <div className="space-y-1">
+                    <label
+                      className="text-sm font-medium"
+                      htmlFor="extract-code"
+                    >
+                      Code
+                    </label>
+                    <input
+                      id="extract-code"
+                      type="text"
+                      placeholder="misal: EBOD-391"
+                      value={extractLink}
+                      onChange={(e) => setExtractLink(e.target.value)}
+                      className="w-full rounded border p-2"
+                      disabled={isSubmitting || extracting}
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label
+                      className="text-sm font-medium"
+                      htmlFor="extract-trailer"
+                    >
+                      Trailer URL (Opsional)
+                    </label>
+                    <input
+                      id="extract-trailer"
+                      type="url"
+                      placeholder="https://example.com/trailer.mp4"
+                      value={trailerUrl}
+                      onChange={(e) => setTrailerUrl(e.target.value)}
+                      className="w-full rounded border p-2"
+                      disabled={isSubmitting || extracting}
+                    />
+                  </div>
                 </div>
                 <DialogFooter>
                   <Button
@@ -680,31 +702,6 @@ export default function UploadClient({ statusOptions }: UploadClientProps) {
                         />
                       </Label>
                     )}
-                  </div>
-
-                  {/* Optional Trailer URL Input */}
-                  <div className="mt-2.5 pt-2 border-t border-slate-200">
-                    <div className="flex items-center justify-between mb-1">
-                      <Label
-                        htmlFor="trailerUrl"
-                        className="text-xs font-semibold text-slate-700 flex items-center gap-1.5"
-                      >
-                        <Film className="w-3.5 h-3.5 text-indigo-500" />
-                        Trailer URL (Opsional)
-                      </Label>
-                      <span className="text-[10px] text-slate-400">
-                        Untuk auto download trailer
-                      </span>
-                    </div>
-                    <Input
-                      id="trailerUrl"
-                      type="url"
-                      value={trailerUrl}
-                      onChange={(e) => setTrailerUrl(e.target.value)}
-                      placeholder="https://example.com/trailer.mp4"
-                      disabled={isSubmitting}
-                      className="h-8 text-xs bg-white border-slate-200 focus-visible:ring-indigo-500"
-                    />
                   </div>
                 </div>
               </div>
