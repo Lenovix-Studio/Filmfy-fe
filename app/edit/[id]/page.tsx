@@ -23,6 +23,27 @@ async function getMovieDetail(id: string) {
   }
 }
 
+async function getStatusOptions(): Promise<{ id: string; label: string }[]> {
+  try {
+    const res = await fetch(`${BACKEND_URL}/common-codes/STATUS/details`, {
+      cache: "no-store",
+    });
+
+    if (!res.ok) return [];
+
+    const result = await res.json();
+    const arrayData = Array.isArray(result) ? result : result?.data || [];
+
+    return arrayData
+      .filter((item: any) => item.is_active !== false && item.code !== "ALL")
+      .sort((a: any, b: any) => a.order - b.order)
+      .map((item: any) => ({ id: item.code, label: item.label }));
+  } catch (error) {
+    console.error("Gagal mengambil status:", error);
+    return [];
+  }
+}
+
 export async function generateMetadata({
   params,
 }: {
@@ -49,7 +70,10 @@ export default async function EditMoviePage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const movie = await getMovieDetail(id);
+  const [movie, statusOptions] = await Promise.all([
+    getMovieDetail(id),
+    getStatusOptions(),
+  ]);
 
   if (!movie) {
     notFound();
@@ -57,7 +81,7 @@ export default async function EditMoviePage({
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100">
-      <EditMovieClient movie={movie} />
+      <EditMovieClient movie={movie} statusOptions={statusOptions} />
     </div>
   );
 }

@@ -24,7 +24,15 @@ const formatMediaUrl = (filePath: string) => {
   return `${STORAGE_URL}/${cleanPath}`;
 };
 
-export default function EditMovieClient({ movie }: { movie: any }) {
+interface EditMovieClientProps {
+  movie: any;
+  statusOptions?: { id: string; label: string }[];
+}
+
+export default function EditMovieClient({
+  movie,
+  statusOptions = [],
+}: EditMovieClientProps) {
   const router = useRouter();
 
   const [formData, setFormData] = useState({
@@ -433,8 +441,18 @@ export default function EditMovieClient({ movie }: { movie: any }) {
                 }
                 className="w-full h-9 rounded-md bg-slate-800 border border-slate-700 text-white px-3 text-sm focus:outline-hidden focus:ring-1 focus:ring-indigo-500"
               >
-                <option value="WATCHED">WATCHED</option>
-                <option value="DELETED">DELETED</option>
+                {statusOptions.length > 0 ? (
+                  statusOptions.map((opt) => (
+                    <option key={opt.id} value={opt.id}>
+                      {opt.label}
+                    </option>
+                  ))
+                ) : (
+                  <>
+                    <option value="WATCHED">WATCHED</option>
+                    <option value="DELETED">DELETED</option>
+                  </>
+                )}
               </select>
             </div>
           </div>
