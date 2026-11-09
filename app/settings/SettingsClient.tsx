@@ -5,7 +5,7 @@ import axios from "axios";
 import { Settings } from "lucide-react";
 import Header from "@/components/Header";
 import { toast } from "sonner";
-import { API_COMMON_CODE, BACKEND_URL } from "@/lib/constant";
+import { API_COMMON_CODE, API_SETTINGS, BACKEND_URL } from "@/lib/constant";
 import { CodeDetailType, CodeType, SettingsTabType } from "@/lib/types";
 import TypeCodeDialog from "./components/TypeCodeDialog";
 import DetailCodeDialog from "./components/DetailCodeDialog";
@@ -26,6 +26,8 @@ export default function SettingsClient({ initialTypes }: SettingsClientProps) {
   const [activeTab, setActiveTab] = useState<SettingsTabType>("system_logs");
   const [resetDialog, setResetDialog] = useState(false);
   const [clearFavDialog, setClearFavDialog] = useState(false);
+  const [clearTempDialog, setClearTempDialog] = useState(false);
+  const [isClearingTemp, setIsClearingTemp] = useState(false);
   const [selectedType, setSelectedType] = useState<string>(
     initialTypes[0]?.code || "",
   );
@@ -227,6 +229,24 @@ export default function SettingsClient({ initialTypes }: SettingsClientProps) {
     }
   };
 
+  const confirmClearTemp = async () => {
+    try {
+      setIsClearingTemp(true);
+      const res = await axios.post(`${API_SETTINGS}/clear-temp`);
+      toast.success(
+        res.data?.message || "Cache/temp folder berhasil dibersihkan",
+      );
+    } catch (error: any) {
+      console.error("Clear temp error:", error);
+      toast.error(
+        error.response?.data?.message || "Gagal membersihkan cache/temp folder",
+      );
+    } finally {
+      setIsClearingTemp(false);
+      setClearTempDialog(false);
+    }
+  };
+
   return (
     <>
       <Header
@@ -280,6 +300,8 @@ export default function SettingsClient({ initialTypes }: SettingsClientProps) {
           <OtherSettings
             onResetData={() => setResetDialog(true)}
             onClearFavorites={() => setClearFavDialog(true)}
+            onClearTemp={() => setClearTempDialog(true)}
+            isClearingTemp={isClearingTemp}
           />
         )}
       </main>
@@ -348,6 +370,15 @@ export default function SettingsClient({ initialTypes }: SettingsClientProps) {
         title="Hapus Semua Favorit?"
         description="Tindakan ini akan menghapus semua film dari daftar favorit. Film tidak akan dihapus dari database."
         onConfirm={confirmClearFavorites}
+      />
+
+      {/* CLEAR TEMP CONFIRMATION DIALOG */}
+      <DeleteConfirmDialog
+        isOpen={clearTempDialog}
+        onOpenChange={setClearTempDialog}
+        title="Bersihkan Cache & Temp?"
+        description="Tindakan ini akan menghapus seluruh isi folder dev/prod temp dan temp media crawler (temp_images, temp_trailers). Apakah Anda yakin?"
+        onConfirm={confirmClearTemp}
       />
     </>
   );

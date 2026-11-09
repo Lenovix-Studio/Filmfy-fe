@@ -509,7 +509,19 @@ export default function UploadClient({ statusOptions }: UploadClientProps) {
   return (
     <div className="bg-white min-h-screen">
       <Header
-        center={false}
+        center={
+          <div className="flex items-center justify-center">
+            {formData.code.trim() ? (
+              <span className="inline-flex items-center px-3 py-1 rounded-lg text-sm font-semibold tracking-wider font-mono bg-slate-100 text-slate-800 border border-slate-200">
+                {formData.code.trim()}
+              </span>
+            ) : (
+              <span className="text-xs text-slate-400 font-medium tracking-wide uppercase">
+                Belum ada Code ID
+              </span>
+            )}
+          </div>
+        }
         right={
           <div className="flex items-center gap-2">
             {mounted && isDev && (

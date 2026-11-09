@@ -3,3 +3,4 @@ export const STORAGE_URL = process.env.NEXT_PUBLIC_STORAGE_URL;
 export const ENV = process.env.NEXT_PUBLIC_ENV;
 
 export const API_COMMON_CODE = `${BACKEND_URL}/common-codes`;
+export const API_SETTINGS = `${BACKEND_URL}/settings`;
