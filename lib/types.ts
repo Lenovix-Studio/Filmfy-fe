@@ -30,6 +30,8 @@ export interface MovieDetailBackend {
   country: string | null;
   tmdbId: number | null;
   imdbId: string | null;
+  trailer_url?: string | null;
+  trailerUrl?: string | null;
   createdAt: string;
   updatedAt: string;
   isFavorite: boolean;

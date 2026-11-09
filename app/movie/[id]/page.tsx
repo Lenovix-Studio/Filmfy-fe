@@ -89,6 +89,22 @@ export default async function MovieDetailPage({ params }: MovieDetailProps) {
   const videoFile = movie.files?.[0];
   const videoUrl = videoFile ? formatMediaUrl(videoFile.file_path) : null;
 
+  const trailerImage = movie.images?.find(
+    (img) => img.image_type === "trailer",
+  );
+  const rawTrailer =
+    movie.trailer_url ||
+    movie.trailerUrl ||
+    (trailerImage ? formatMediaUrl(trailerImage.file_path) : null);
+  const trailerUrl = rawTrailer
+    ? rawTrailer.startsWith("http")
+      ? rawTrailer
+      : formatMediaUrl(rawTrailer)
+    : null;
+
+  const activePlayUrl = videoUrl || trailerUrl;
+  const isTrailerOnly = !videoUrl && !!trailerUrl;
+
   const durationText = movie.runtimeMinutes
     ? `${movie.runtimeMinutes} mnt`
     : null;
@@ -105,29 +121,23 @@ export default async function MovieDetailPage({ params }: MovieDetailProps) {
       />
       <main className="min-h-screen bg-slate-950 text-slate-100 pb-16">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-8 space-y-10">
-          <section className="space-y-3">
-            <div className="relative w-full aspect-video bg-black rounded-2xl overflow-hidden shadow-2xl border border-slate-800">
-              {videoUrl ? (
-                <VideoPlayer src={videoUrl} poster={coverUrl} movieId={id} />
-              ) : (
-                <div className="w-full h-full flex flex-col items-center justify-center text-slate-500 gap-2">
-                  <svg
-                    className="w-12 h-12 stroke-current"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={1.5}
-                      d="M15.75 5.25a3 3 0 013 3m3 0a6 6 0 01-7.029 5.912c-.563-.097-1.159.026-1.563.43L10.5 17.25H8.25v2.25H6v2.25H2.25v-2.818c0-.597.237-1.17.659-1.591l6.499-6.499c.404-.404.527-1 .43-1.563A6 6 0 0118.75 8.25z"
-                    />
-                  </svg>
-                  <p>Streaming video tidak tersedia untuk file ini.</p>
+          {activePlayUrl && (
+            <section className="space-y-3">
+              {isTrailerOnly && (
+                <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-amber-400">
+                  <span className="inline-block w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
+                  Trailer Film
                 </div>
               )}
-            </div>
-          </section>
+              <div className="relative w-full aspect-video bg-black rounded-2xl overflow-hidden shadow-2xl border border-slate-800">
+                <VideoPlayer
+                  src={activePlayUrl}
+                  poster={coverUrl}
+                  movieId={isTrailerOnly ? `trailer-${id}` : id}
+                />
+              </div>
+            </section>
+          )}
 
           <div className="relative w-full h-87.5 md:h-112.5 bg-slate-900 overflow-hidden rounded-2xl border border-slate-800">
             <div className="relative max-w-7xl mx-auto h-full px-4 sm:px-6 lg:px-8 flex items-end pb-8">
