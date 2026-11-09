@@ -80,11 +80,16 @@ export default function UploadClient({ statusOptions }: UploadClientProps) {
     runtime_minutes: 0,
   });
 
+  const videoPreviewRef = useRef<string | null>(null);
+  useEffect(() => {
+    videoPreviewRef.current = videoPreview;
+  }, [videoPreview]);
+
   useEffect(() => {
     return () => {
-      if (videoPreview) URL.revokeObjectURL(videoPreview);
+      if (videoPreviewRef.current) URL.revokeObjectURL(videoPreviewRef.current);
     };
-  }, [videoPreview]);
+  }, []);
 
   const handleInputChange = (
     e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
@@ -190,8 +195,11 @@ export default function UploadClient({ statusOptions }: UploadClientProps) {
   };
 
   const handleExtract = async () => {
-    if (!extractLink.trim()) {
-      toast.error("Code tidak boleh kosong");
+    const hasCode = !!extractLink.trim();
+    const hasTrailer = !!trailerUrl.trim();
+
+    if (!hasCode && !hasTrailer) {
+      toast.error("Isi minimal salah satu: Code atau Trailer URL");
       return;
     }
 
@@ -201,7 +209,10 @@ export default function UploadClient({ statusOptions }: UploadClientProps) {
       const res = await fetch(`${BACKEND_URL}/movies/extract`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ code: extractLink }),
+        body: JSON.stringify({
+          code: hasCode ? extractLink.trim() : undefined,
+          trailer_url: hasTrailer ? trailerUrl.trim() : undefined,
+        }),
       });
 
       if (!res.ok) {
@@ -228,16 +239,37 @@ export default function UploadClient({ statusOptions }: UploadClientProps) {
         genres: data.genres || prev.genres,
       }));
 
+      const fetchFileFromUrl = async (
+        url: string,
+        defaultName: string,
+      ): Promise<File | null> => {
+        try {
+          let targetUrl = url;
+          if (url.includes("pics.dmm.co.jp") || url.startsWith("http")) {
+            if (url.includes("pics.dmm.co.jp")) {
+              targetUrl = `${BACKEND_URL}/movies/extract/cover?url=${encodeURIComponent(url)}`;
+            }
+          }
+          const res = await fetch(targetUrl);
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          const blob = await res.blob();
+          return new File([blob], defaultName, { type: blob.type });
+        } catch (err) {
+          console.error(`Gagal load file dari ${url}:`, err);
+          return null;
+        }
+      };
+
       if (data.cover_url) {
         try {
-          const proxyUrl = `${BACKEND_URL}/movies/extract/cover?url=${encodeURIComponent(data.cover_url)}`;
-          const imageRes = await fetch(proxyUrl);
-          const blob = await imageRes.blob();
-          const file = new File([blob], `${data.code || "cover"}.jpg`, {
-            type: blob.type,
-          });
-          setCoverFile(file);
-          setCoverPreview(URL.createObjectURL(blob));
+          const file = await fetchFileFromUrl(
+            data.cover_url,
+            `${data.code || "cover"}.jpg`,
+          );
+          if (file) {
+            setCoverFile(file);
+            setCoverPreview(URL.createObjectURL(file));
+          }
         } catch (e) {
           console.error("Gagal mendownload cover preview:", e);
         }
@@ -250,17 +282,16 @@ export default function UploadClient({ statusOptions }: UploadClientProps) {
         for (let i = 0; i < data.gallery_urls.length; i++) {
           const url = data.gallery_urls[i];
           try {
-            const proxyUrl = `${BACKEND_URL}/movies/extract/cover?url=${encodeURIComponent(url)}`;
-            const imageRes = await fetch(proxyUrl);
-            const blob = await imageRes.blob();
-            const file = new File(
-              [blob],
+            const file = await fetchFileFromUrl(
+              url,
               `${data.code || "gallery"}_${i}.jpg`,
-              { type: blob.type },
             );
-            newGalleryFiles.push(file);
-            const objectUrl = URL.createObjectURL(blob);
-            newGalleryPreviews.push(objectUrl);
+            if (file) {
+              newGalleryFiles.push(file);
+              newGalleryPreviews.push(URL.createObjectURL(file));
+            } else {
+              newGalleryPreviews.push(url);
+            }
           } catch (e) {
             console.error(`Gagal mendownload gallery preview ${i}:`, e);
             newGalleryPreviews.push(url);
@@ -270,9 +301,37 @@ export default function UploadClient({ statusOptions }: UploadClientProps) {
         setGalleryFiles(newGalleryFiles);
         setGalleryPreviews(newGalleryPreviews);
       }
-      setActiveTab("metadata");
+
+      if (data.trailer_url) {
+        try {
+          const proxyTrailerUrl = `${BACKEND_URL}/movies/extract/trailer?url=${encodeURIComponent(data.trailer_url)}`;
+          const videoRes = await fetch(proxyTrailerUrl);
+          if (!videoRes.ok) {
+            throw new Error(`Status ${videoRes.status}`);
+          }
+          const blob = await videoRes.blob();
+          const file = new File([blob], `${data.code || "trailer"}.mp4`, {
+            type: "video/mp4",
+          });
+          if (videoPreviewRef.current) {
+            URL.revokeObjectURL(videoPreviewRef.current);
+          }
+          const objectUrl = URL.createObjectURL(file);
+          setVideoFile(file);
+          setVideoPreview(objectUrl);
+
+          const minutes = await getVideoRuntimeMinutes(file);
+          if (minutes > 0) {
+            setFormData((prev) => ({ ...prev, runtime_minutes: minutes }));
+          }
+        } catch (e) {
+          console.error("Gagal mendownload trailer video:", e);
+        }
+      }
+
+      setActiveTab("media");
       setExtractModalOpen(false);
-      toast.success("Metadata berhasil di-extract");
+      toast.success("Metadata & Trailer berhasil di-extract");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Extract gagal");
     } finally {
@@ -525,7 +584,9 @@ export default function UploadClient({ statusOptions }: UploadClientProps) {
                 <DialogFooter>
                   <Button
                     onClick={handleExtract}
-                    disabled={!extractLink || extracting}
+                    disabled={
+                      (!extractLink.trim() && !trailerUrl.trim()) || extracting
+                    }
                   >
                     {extracting ? "Extracting..." : "Extract"}
                   </Button>
