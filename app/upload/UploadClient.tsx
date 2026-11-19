@@ -17,6 +17,7 @@ import {
   Sparkles,
   FileText,
   FlaskConical,
+  X,
 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import Link from "next/link";
@@ -60,9 +61,11 @@ export default function UploadClient({ statusOptions }: UploadClientProps) {
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<string>("media");
   const [extractLink, setExtractLink] = useState("");
+  const [extractHeadless, setExtractHeadless] = useState(false);
   const [extracting, setExtracting] = useState(false);
   const [extractModalOpen, setExtractModalOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const abortControllerRef = useRef<AbortController | null>(null);
   const [formData, setFormData] = useState<FilmFormData>({
     code: "",
     title: "",
@@ -212,6 +215,7 @@ export default function UploadClient({ statusOptions }: UploadClientProps) {
         body: JSON.stringify({
           code: hasCode ? extractLink.trim() : undefined,
           trailer_url: hasTrailer ? trailerUrl.trim() : undefined,
+          headless: extractHeadless,
         }),
       });
 
@@ -430,7 +434,11 @@ export default function UploadClient({ statusOptions }: UploadClientProps) {
         galleryFiles.forEach((file) => form.append("gallery", file));
       }
 
+      const controller = new AbortController();
+      abortControllerRef.current = controller;
+
       const response = await axios.post(`${BACKEND_URL}/movies/upload`, form, {
+        signal: controller.signal,
         headers: {
           "Content-Type": "multipart/form-data",
         },
@@ -482,27 +490,43 @@ export default function UploadClient({ statusOptions }: UploadClientProps) {
       setActiveTab("media");
       router.refresh();
     } catch (error: any) {
-      console.error("Upload failed:", error);
-      const msg =
-        error.response?.data?.message ||
-        error.message ||
-        "Terjadi kesalahan saat mengunggah film.";
-
-      setUploadError(msg);
-
-      if (uploadToastIdRef.current) {
-        toast.error(msg, {
-          id: uploadToastIdRef.current,
-          description: undefined,
-        });
-        uploadToastIdRef.current = null;
+      if (axios.isCancel(error) || error.name === "CanceledError") {
+        toast.info("Upload dibatalkan.");
+        setUploadError(null);
+        if (uploadToastIdRef.current) {
+          toast.dismiss(uploadToastIdRef.current);
+          uploadToastIdRef.current = null;
+        }
       } else {
-        toast.error(msg);
+        console.error("Upload failed:", error);
+        const msg =
+          error.response?.data?.message ||
+          error.message ||
+          "Terjadi kesalahan saat mengunggah film.";
+
+        setUploadError(msg);
+
+        if (uploadToastIdRef.current) {
+          toast.error(msg, {
+            id: uploadToastIdRef.current,
+            description: undefined,
+          });
+          uploadToastIdRef.current = null;
+        } else {
+          toast.error(msg);
+        }
       }
     } finally {
       setIsSubmitting(false);
       setUploadProgress(0);
       uploadToastIdRef.current = null;
+      abortControllerRef.current = null;
+    }
+  };
+
+  const handleCancelUpload = () => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
     }
   };
 
@@ -592,6 +616,22 @@ export default function UploadClient({ statusOptions }: UploadClientProps) {
                       disabled={isSubmitting || extracting}
                     />
                   </div>
+                  <div className="flex items-center gap-2 pt-1">
+                    <input
+                      id="extract-headless"
+                      type="checkbox"
+                      checked={extractHeadless}
+                      onChange={(e) => setExtractHeadless(e.target.checked)}
+                      disabled={isSubmitting || extracting}
+                      className="h-4 w-4 rounded border-slate-300 text-rose-600 focus:ring-rose-500 cursor-pointer"
+                    />
+                    <label
+                      htmlFor="extract-headless"
+                      className="text-xs text-slate-600 select-none cursor-pointer"
+                    >
+                      Headless Browser (tanpa jendela Chrome)
+                    </label>
+                  </div>
                 </div>
                 <DialogFooter>
                   <Button
@@ -606,18 +646,29 @@ export default function UploadClient({ statusOptions }: UploadClientProps) {
               </DialogContent>
             </Dialog>
 
-            <Button
-              type="submit"
-              form="upload-form"
-              size="lg"
-              className="rounded-xl bg-rose-600 hover:bg-rose-700 text-white shadow-md shadow-rose-600/20 flex items-center gap-2"
-              disabled={isSubmitting}
-            >
-              <Upload className="w-4 h-4" />
-              <span className="hidden sm:inline">
-                {isSubmitting ? "Mengunggah..." : "Upload"}
-              </span>
-            </Button>
+            {isSubmitting ? (
+              <Button
+                type="button"
+                size="lg"
+                variant="destructive"
+                className="rounded-xl shadow-md flex items-center gap-2"
+                onClick={handleCancelUpload}
+              >
+                <X className="w-4 h-4" />
+                <span className="hidden sm:inline">Batalkan</span>
+              </Button>
+            ) : (
+              <Button
+                type="submit"
+                form="upload-form"
+                size="lg"
+                className="rounded-xl bg-rose-600 hover:bg-rose-700 text-white shadow-md shadow-rose-600/20 flex items-center gap-2"
+                disabled={isSubmitting}
+              >
+                <Upload className="w-4 h-4" />
+                <span className="hidden sm:inline">Upload</span>
+              </Button>
+            )}
             <Button
               variant="outline"
               size="lg"
