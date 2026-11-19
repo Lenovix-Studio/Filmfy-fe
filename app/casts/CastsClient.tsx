@@ -3,8 +3,9 @@
 import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { User, Film, Search } from "lucide-react";
+import { User, Film, Search, ArrowDownAZ, Clock } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 import type { CastItem } from "./page";
 
 interface CastsClientProps {
@@ -17,6 +18,7 @@ export default function CastsClient({
   storageUrl,
 }: CastsClientProps) {
   const [search, setSearch] = useState("");
+  const [sortBy, setSortBy] = useState<"alpha" | "latest">("alpha");
 
   const formatUrl = (path: string | null | undefined) => {
     if (!path) return null;
@@ -34,28 +36,75 @@ export default function CastsClient({
     );
   });
 
+  const sortedCasts = [...filteredCasts].sort((a, b) => {
+    if (sortBy === "alpha") {
+      const nameA = a.display_name || a.name || "";
+      const nameB = b.display_name || b.name || "";
+      return nameA.localeCompare(nameB);
+    } else {
+      // Prioritas 1: updated_at, Prioritas 2: created_at
+      const timeA = new Date(a.updated_at || a.created_at || 0).getTime();
+      const timeB = new Date(b.updated_at || b.created_at || 0).getTime();
+      return timeB - timeA;
+    }
+  });
+
   return (
     <div className="space-y-6">
-      {/* Search Input */}
-      <div className="relative max-w-md">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-        <Input
-          type="text"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="Cari nama cast atau nama alias..."
-          className="pl-9 bg-slate-900 border-slate-800 text-slate-100 placeholder:text-slate-500 focus-visible:ring-indigo-500 rounded-xl"
-        />
+      {/* Controls: Search & Sort Filter */}
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+        <div className="relative max-w-md w-full">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+          <Input
+            type="text"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Cari nama cast atau nama alias..."
+            className="pl-9 bg-slate-900 border-slate-800 text-slate-100 placeholder:text-slate-500 focus-visible:ring-indigo-500 rounded-xl"
+          />
+        </div>
+
+        {/* Filter buttons: A-Z vs Update Terbaru */}
+        <div className="flex items-center gap-2 self-start sm:self-auto bg-slate-900 border border-slate-800 p-1 rounded-xl">
+          <Button
+            type="button"
+            size="sm"
+            variant="ghost"
+            onClick={() => setSortBy("alpha")}
+            className={`rounded-lg text-xs font-semibold px-3 py-1.5 flex items-center gap-1.5 transition-colors ${
+              sortBy === "alpha"
+                ? "bg-indigo-600 text-white hover:bg-indigo-500"
+                : "text-slate-400 hover:text-slate-200 hover:bg-slate-800"
+            }`}
+          >
+            <ArrowDownAZ size={14} />A - Z
+          </Button>
+
+          <Button
+            type="button"
+            size="sm"
+            variant="ghost"
+            onClick={() => setSortBy("latest")}
+            className={`rounded-lg text-xs font-semibold px-3 py-1.5 flex items-center gap-1.5 transition-colors ${
+              sortBy === "latest"
+                ? "bg-indigo-600 text-white hover:bg-indigo-500"
+                : "text-slate-400 hover:text-slate-200 hover:bg-slate-800"
+            }`}
+          >
+            <Clock size={14} />
+            Update Terbaru
+          </Button>
+        </div>
       </div>
 
-      {filteredCasts.length === 0 ? (
+      {sortedCasts.length === 0 ? (
         <div className="text-center py-16 border border-dashed border-slate-800 rounded-2xl text-slate-500">
           <User className="w-12 h-12 mx-auto mb-3 opacity-40" />
           <p className="text-base font-medium">Cast tidak ditemukan</p>
         </div>
       ) : (
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
-          {filteredCasts.map((cast) => {
+          {sortedCasts.map((cast) => {
             const avatarUrl = formatUrl(cast.profile_path);
 
             return (

@@ -34,8 +34,39 @@ async function getStatusOptions(): Promise<{ id: string; label: string }[]> {
   }
 }
 
-export default async function UploadPage() {
-  const statusOptions = await getStatusOptions();
+async function getCensorshipOptions(): Promise<
+  { id: string; label: string }[]
+> {
+  try {
+    const res = await fetch(`${BACKEND_URL}/common-codes/CENSORSHIP/details`, {
+      cache: "no-store",
+    });
 
-  return <UploadClient statusOptions={statusOptions} />;
+    if (!res.ok) return [];
+
+    const result = await res.json();
+    const arrayData = Array.isArray(result) ? result : result?.data || [];
+
+    return arrayData
+      .filter((item: any) => item.is_active !== false)
+      .sort((a: any, b: any) => (a.order ?? 0) - (b.order ?? 0))
+      .map((item: any) => ({ id: item.code, label: item.label }));
+  } catch (error) {
+    console.error("Gagal mengambil censorship:", error);
+    return [];
+  }
+}
+
+export default async function UploadPage() {
+  const [statusOptions, censorshipOptions] = await Promise.all([
+    getStatusOptions(),
+    getCensorshipOptions(),
+  ]);
+
+  return (
+    <UploadClient
+      statusOptions={statusOptions}
+      censorshipOptions={censorshipOptions}
+    />
+  );
 }

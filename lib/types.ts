@@ -24,6 +24,8 @@ export interface MovieDetailBackend {
   originalTitle: string | null;
   overview: string | null;
   status?: string | null;
+  censorship_code?: string | null;
+  censorshipCode?: string | null;
   releaseDate: string | null;
   runtimeMinutes: number | null;
   language: string | null;
@@ -94,6 +96,7 @@ export interface FilmFormData {
   code: string;
   title: string;
   status: string;
+  censorship_code?: string;
   overview: string;
   director: string;
   studio: string;

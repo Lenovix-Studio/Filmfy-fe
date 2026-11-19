@@ -13,6 +13,8 @@ export interface CastItem {
   bio?: string | null;
   profile_path?: string | null;
   movies_count: number;
+  created_at?: string | null;
+  updated_at?: string | null;
 }
 
 async function getCasts(): Promise<CastItem[]> {

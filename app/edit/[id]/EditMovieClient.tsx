@@ -9,9 +9,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Save, X, ArrowLeft } from "lucide-react";
+import { Save, X, ArrowLeft, Crop } from "lucide-react";
 import Image from "next/image";
 import { ExistingImage, GalleryItem, PendingImage } from "@/lib/types";
+import ImageCropperModal from "@/components/ImageCropperModal";
 
 const formatMediaUrl = (filePath: string) => {
   if (!filePath) return "";
@@ -27,11 +28,13 @@ const formatMediaUrl = (filePath: string) => {
 interface EditMovieClientProps {
   movie: any;
   statusOptions?: { id: string; label: string }[];
+  censorshipOptions?: { id: string; label: string }[];
 }
 
 export default function EditMovieClient({
   movie,
   statusOptions = [],
+  censorshipOptions = [],
 }: EditMovieClientProps) {
   const router = useRouter();
 
@@ -39,6 +42,7 @@ export default function EditMovieClient({
     title: movie.title || "",
     code: movie.code || "",
     status: movie.status || "WATCHED",
+    censorship_code: movie.censorship_code || movie.censorshipCode || "",
     overview: movie.overview || "",
     director: movie.directors?.map((d: any) => d.name).join(", ") || "",
     studio: movie.studios?.map((s: any) => s.name).join(", ") || "",
@@ -58,6 +62,11 @@ export default function EditMovieClient({
   const [coverPreview, setCoverPreview] = useState<string | null>(
     existingCover ? formatMediaUrl(existingCover.file_path) : null,
   );
+
+  // Crop modal state
+  const [cropModalOpen, setCropModalOpen] = useState(false);
+  const [rawCoverSrc, setRawCoverSrc] = useState<string | null>(null);
+  const [rawCoverFileName, setRawCoverFileName] = useState("cover.jpg");
 
   const [videoFile, setVideoFile] = useState<File | null>(null);
   const [videoPreview, setVideoPreview] = useState<string | null>(
@@ -79,10 +88,20 @@ export default function EditMovieClient({
   const handleCoverChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    setCoverFile(file);
+    setRawCoverFileName(file.name);
     const reader = new FileReader();
-    reader.onloadend = () => setCoverPreview(reader.result as string);
+    reader.onloadend = () => {
+      setRawCoverSrc(reader.result as string);
+      setCropModalOpen(true);
+    };
     reader.readAsDataURL(file);
+    e.target.value = "";
+  };
+
+  const handleCroppedCoverComplete = (file: File, previewUrl: string) => {
+    setCoverFile(file);
+    setCoverPreview(previewUrl);
+    toast.success("Cover berhasil di-crop");
   };
 
   const handleVideoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -121,6 +140,9 @@ export default function EditMovieClient({
       title: formData.title,
       code: formData.code,
       status: formData.status,
+      censorship_code: formData.censorship_code
+        ? formData.censorship_code
+        : null,
       overview: formData.overview,
       director: formData.director
         .split(",")
@@ -211,30 +233,20 @@ export default function EditMovieClient({
     <>
       <Header
         center={
-          <div className="flex items-center gap-3">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => router.back()}
-              className="text-slate-400 hover:text-white"
-            >
-              <ArrowLeft className="w-5 h-5" />
-            </Button>
-            <h1 className="text-xl md:text-2xl font-bold tracking-tight text-white">
-              Edit: {movie.title}
+          <div className="flex items-center gap-2">
+            <h1 className="text-xl font-bold tracking-tight text-white">
+              Edit Film: {movie.code}
             </h1>
           </div>
         }
-        right={
-          <Button
-            onClick={handleSubmit}
-            disabled={isSaving}
-            className="bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl"
-          >
-            <Save className="w-4 h-4 mr-2" />
-            {isSaving ? "Menyimpan..." : "Simpan Perubahan"}
-          </Button>
-        }
+      />
+
+      <ImageCropperModal
+        isOpen={cropModalOpen}
+        imageSrc={rawCoverSrc}
+        fileName={rawCoverFileName}
+        onClose={() => setCropModalOpen(false)}
+        onCropComplete={handleCroppedCoverComplete}
       />
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-8 pb-16 space-y-8">
@@ -254,7 +266,20 @@ export default function EditMovieClient({
                     unoptimized
                   />
                   <div className="absolute top-2 right-2 flex gap-2">
-                    <label className="cursor-pointer bg-slate-700 hover:bg-slate-600 text-white px-2 py-1 rounded text-xs">
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      className="bg-slate-800/90 hover:bg-slate-700 text-white border-slate-700 text-xs px-2 py-1 h-auto"
+                      onClick={() => {
+                        setRawCoverSrc(coverPreview);
+                        setCropModalOpen(true);
+                      }}
+                    >
+                      <Crop className="w-3.5 h-3.5 mr-1" />
+                      Crop
+                    </Button>
+                    <label className="cursor-pointer bg-slate-700 hover:bg-slate-600 text-white px-2 py-1 rounded text-xs flex items-center">
                       Replace
                       <input
                         type="file"
@@ -264,22 +289,24 @@ export default function EditMovieClient({
                       />
                     </label>
                     <Button
-                      size="xs"
+                      type="button"
+                      size="sm"
                       variant="destructive"
+                      className="px-2 py-1 h-auto text-xs"
                       onClick={() => {
                         setCoverFile(null);
                         setCoverPreview(null);
                       }}
                     >
-                      X
+                      <X className="w-3.5 h-3.5" />
                     </Button>
                   </div>
                 </div>
               ) : (
                 <div className="text-center text-slate-500">
                   <p className="text-sm mb-2">Tidak ada cover</p>
-                  <label className="cursor-pointer bg-slate-700 hover:bg-slate-600 text-white px-2 py-1 rounded text-xs">
-                    Upload
+                  <label className="cursor-pointer bg-slate-700 hover:bg-slate-600 text-white px-3 py-1.5 rounded text-xs inline-block">
+                    Upload Cover
                     <input
                       type="file"
                       accept="image/*"
@@ -310,22 +337,23 @@ export default function EditMovieClient({
                       />
                     </label>
                     <Button
-                      size="xs"
+                      size="sm"
                       variant="destructive"
+                      className="px-2 py-1 h-auto text-xs"
                       onClick={() => {
                         setVideoFile(null);
                         setVideoPreview(null);
                       }}
                     >
-                      X
+                      <X className="w-3.5 h-3.5" />
                     </Button>
                   </div>
                 </div>
               ) : (
                 <div className="text-center text-slate-500">
                   <p className="text-sm mb-2">Tidak ada video</p>
-                  <label className="cursor-pointer bg-slate-700 hover:bg-slate-600 text-white px-2 py-1 rounded text-xs">
-                    Upload
+                  <label className="cursor-pointer bg-slate-700 hover:bg-slate-600 text-white px-3 py-1.5 rounded text-xs inline-block">
+                    Upload Video
                     <input
                       type="file"
                       accept="video/*"
@@ -337,13 +365,6 @@ export default function EditMovieClient({
               )}
             </div>
           </div>
-          <p className="text-xs text-slate-400 hidden">
-            Untuk mengganti cover atau video, gunakan halaman{" "}
-            <a href="/upload" className="text-indigo-400 hover:underline">
-              Upload
-            </a>
-            .
-          </p>
 
           <div className="bg-slate-800/50 p-4 rounded-xl border border-slate-700">
             <div className="flex justify-between items-center mb-3">
@@ -378,9 +399,9 @@ export default function EditMovieClient({
                       unoptimized
                     />
                     <Button
-                      size="xs"
+                      size="sm"
                       variant="destructive"
-                      className="absolute top-1 right-1"
+                      className="absolute top-1 right-1 px-1.5 py-0.5 h-auto text-xs"
                       onClick={() => handleRemoveGallery(idx)}
                     >
                       <X className="w-3 h-3" />
@@ -403,7 +424,7 @@ export default function EditMovieClient({
             Informasi Utama
           </h2>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
             <div className="space-y-2">
               <Label htmlFor="code" className="text-slate-300">
                 Kode Film
@@ -413,10 +434,10 @@ export default function EditMovieClient({
                 name="code"
                 value={formData.code}
                 onChange={handleInputChange}
-                className="bg-slate-800 border-slate-700 text-white"
+                className="bg-slate-800 border-slate-700 text-white uppercase"
               />
             </div>
-            <div className="space-y-2">
+            <div className="space-y-2 md:col-span-1">
               <Label htmlFor="title" className="text-slate-300">
                 Judul Film
               </Label>
@@ -455,6 +476,27 @@ export default function EditMovieClient({
                 )}
               </select>
             </div>
+            <div className="space-y-2">
+              <Label htmlFor="censorship_code" className="text-slate-300">
+                Censorship
+              </Label>
+              <select
+                id="censorship_code"
+                name="censorship_code"
+                value={formData.censorship_code || ""}
+                onChange={(e) =>
+                  setFormData({ ...formData, censorship_code: e.target.value })
+                }
+                className="w-full h-9 rounded-md bg-slate-800 border border-slate-700 text-white px-3 text-sm focus:outline-hidden focus:ring-1 focus:ring-indigo-500"
+              >
+                <option value="">Unknown (Default)</option>
+                {censorshipOptions.map((opt) => (
+                  <option key={opt.id} value={opt.id}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
 
           <div className="space-y-2">
@@ -471,14 +513,10 @@ export default function EditMovieClient({
             />
           </div>
 
-          <h2 className="text-lg font-semibold text-white border-b border-slate-800 pb-3 mt-8">
-            Metadata (Pisahkan dengan koma)
-          </h2>
-
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="space-y-2">
               <Label htmlFor="director" className="text-slate-300">
-                Sutradara (Director)
+                Director (Pisahkan koma)
               </Label>
               <Input
                 id="director"
@@ -486,12 +524,11 @@ export default function EditMovieClient({
                 value={formData.director}
                 onChange={handleInputChange}
                 className="bg-slate-800 border-slate-700 text-white"
-                placeholder="Christopher Nolan, Quentin Tarantino"
               />
             </div>
             <div className="space-y-2">
               <Label htmlFor="studio" className="text-slate-300">
-                Studio
+                Studio (Pisahkan koma)
               </Label>
               <Input
                 id="studio"
@@ -499,12 +536,11 @@ export default function EditMovieClient({
                 value={formData.studio}
                 onChange={handleInputChange}
                 className="bg-slate-800 border-slate-700 text-white"
-                placeholder="Warner Bros, Universal"
               />
             </div>
             <div className="space-y-2">
               <Label htmlFor="label" className="text-slate-300">
-                Label
+                Label (Pisahkan koma)
               </Label>
               <Input
                 id="label"
@@ -512,12 +548,11 @@ export default function EditMovieClient({
                 value={formData.label}
                 onChange={handleInputChange}
                 className="bg-slate-800 border-slate-700 text-white"
-                placeholder="Legendary Pictures"
               />
             </div>
             <div className="space-y-2">
               <Label htmlFor="series" className="text-slate-300">
-                Seri (Series)
+                Series (Pisahkan koma)
               </Label>
               <Input
                 id="series"
@@ -525,12 +560,11 @@ export default function EditMovieClient({
                 value={formData.series}
                 onChange={handleInputChange}
                 className="bg-slate-800 border-slate-700 text-white"
-                placeholder="Inception Collection"
               />
             </div>
             <div className="space-y-2">
               <Label htmlFor="genre" className="text-slate-300">
-                Genre
+                Genre (Pisahkan koma)
               </Label>
               <Input
                 id="genre"
@@ -538,12 +572,11 @@ export default function EditMovieClient({
                 value={formData.genre}
                 onChange={handleInputChange}
                 className="bg-slate-800 border-slate-700 text-white"
-                placeholder="Action, Sci-Fi"
               />
             </div>
             <div className="space-y-2">
               <Label htmlFor="cast" className="text-slate-300">
-                Pemeran (Cast)
+                Cast (Pisahkan koma)
               </Label>
               <Input
                 id="cast"
@@ -551,9 +584,27 @@ export default function EditMovieClient({
                 value={formData.cast}
                 onChange={handleInputChange}
                 className="bg-slate-800 border-slate-700 text-white"
-                placeholder="Leonardo DiCaprio, Elliot Page"
               />
             </div>
+          </div>
+
+          <div className="flex justify-end gap-3 pt-4 border-t border-slate-800">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => router.back()}
+              className="border-slate-700 text-slate-300"
+            >
+              <ArrowLeft className="w-4 h-4 mr-2" /> Batal
+            </Button>
+            <Button
+              type="submit"
+              disabled={isSaving}
+              className="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold"
+            >
+              <Save className="w-4 h-4 mr-2" />
+              {isSaving ? "Menyimpan..." : "Simpan Perubahan"}
+            </Button>
           </div>
         </form>
       </main>

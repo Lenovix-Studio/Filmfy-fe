@@ -13,21 +13,17 @@ import {
   Image as ImageIcon,
   Film,
   Upload,
-  Settings,
   Sparkles,
-  FileText,
-  FlaskConical,
   X,
+  Crop,
 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import Link from "next/link";
-import { BACKEND_URL, ENV } from "@/lib/constant";
+import { BACKEND_URL } from "@/lib/constant";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
   DialogFooter,
 } from "@/components/ui/dialog";
 import {
@@ -40,12 +36,18 @@ import {
 import Header from "@/components/Header";
 import { toast } from "sonner";
 import { FilmFormData } from "@/lib/types";
+import ImageCropperModal from "@/components/ImageCropperModal";
+import Image from "next/image";
 
 interface UploadClientProps {
   statusOptions: { id: string; label: string }[];
+  censorshipOptions: { id: string; label: string }[];
 }
 
-export default function UploadClient({ statusOptions }: UploadClientProps) {
+export default function UploadClient({
+  statusOptions,
+  censorshipOptions,
+}: UploadClientProps) {
   const router = useRouter();
   const uploadToastIdRef = useRef<string | number | null>(null);
 
@@ -55,21 +57,27 @@ export default function UploadClient({ statusOptions }: UploadClientProps) {
   const [videoPreview, setVideoPreview] = useState<string | null>(null);
   const [galleryFiles, setGalleryFiles] = useState<File[]>([]);
   const [galleryPreviews, setGalleryPreviews] = useState<string[]>([]);
-  const [trailerUrl, setTrailerUrl] = useState<string>("");
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [uploadProgress, setUploadProgress] = useState<number>(0);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<string>("media");
-  const [extractLink, setExtractLink] = useState("");
+  const [extractCode, setExtractCode] = useState("");
+  const [extractUrl, setExtractUrl] = useState("");
   const [extractHeadless, setExtractHeadless] = useState(false);
   const [extracting, setExtracting] = useState(false);
   const [extractModalOpen, setExtractModalOpen] = useState(false);
-  const [mounted, setMounted] = useState(false);
+
+  // Crop Modal state
+  const [cropModalOpen, setCropModalOpen] = useState(false);
+  const [rawCoverSrc, setRawCoverSrc] = useState<string | null>(null);
+  const [rawCoverFileName, setRawCoverFileName] = useState("cover.jpg");
+
   const abortControllerRef = useRef<AbortController | null>(null);
   const [formData, setFormData] = useState<FilmFormData>({
     code: "",
     title: "",
     status: statusOptions[0]?.id || "",
+    censorship_code: "",
     overview: "",
     director: "",
     studio: "",
@@ -101,14 +109,13 @@ export default function UploadClient({ statusOptions }: UploadClientProps) {
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
+  const handleSelectChange = (name: string, value: string | null) => {
+    setFormData((prev) => ({ ...prev, [name]: value ?? "" }));
+  };
+
   const handleCoverChange = (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-
-    if (file.size > 50 * 1024 * 1024) {
-      toast.error("Cover max 50MB");
-      return;
-    }
 
     if (
       !["image/jpeg", "image/png", "image/webp", "image/gif"].includes(
@@ -120,10 +127,20 @@ export default function UploadClient({ statusOptions }: UploadClientProps) {
       return;
     }
 
-    setCoverFile(file);
+    setRawCoverFileName(file.name);
     const reader = new FileReader();
-    reader.onloadend = () => setCoverPreview(reader.result as string);
+    reader.onloadend = () => {
+      setRawCoverSrc(reader.result as string);
+      setCropModalOpen(true);
+    };
     reader.readAsDataURL(file);
+    e.target.value = "";
+  };
+
+  const handleCroppedCoverComplete = (file: File, previewUrl: string) => {
+    setCoverFile(file);
+    setCoverPreview(previewUrl);
+    toast.success("Cover berhasil di-crop");
   };
 
   const handleVideoChange = (e: ChangeEvent<HTMLInputElement>) => {
@@ -165,171 +182,72 @@ export default function UploadClient({ statusOptions }: UploadClientProps) {
       .filter((v) => v.length > 0);
   };
 
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  const isDev = ENV;
-
-  const UploadSchema = z.object({
-    code: z.string().min(1, "Code wajib diisi"),
-  });
-
-  const handleLoadTestData = () => {
-    setFormData({
-      code: "TST-" + Math.random().toString(36).substr(2, 9).toUpperCase(),
-      title: "Test Film - Inception",
-      status: statusOptions[0]?.id || "",
-      overview:
-        "This is a test film about dreams within dreams. A skilled thief who specializes in extraction, stealing company secrets from people's subconscious during the dream state, is given the inverse task of planting an idea into the mind of a C.E.O.",
-      director: "Christopher Nolan, Denis Villeneuve",
-      studio: "Warner Bros, Universal Pictures",
-      label: "Legendary Pictures, Syncopy",
-      genres: "Sci-Fi, Action, Thriller",
-      cast: "Leonardo DiCaprio, Marion Cotillard, Tom Hardy, Ellen Page",
-      series: "Nolan Collection",
-      country: "USA",
-      language: "English",
-      release_date: "2010-07-16",
-      runtime_minutes: 0,
-    });
-    setActiveTab("metadata");
-    toast.success("Test data berhasil dimuat");
-  };
-
   const handleExtract = async () => {
-    const hasCode = !!extractLink.trim();
-    const hasTrailer = !!trailerUrl.trim();
-
-    if (!hasCode && !hasTrailer) {
-      toast.error("Isi minimal salah satu: Code atau Trailer URL");
+    if (!extractCode.trim() && !extractUrl.trim()) {
+      toast.error("Masukkan Kode Film atau Target URL terlebih dahulu");
       return;
     }
 
     setExtracting(true);
-    setExtractModalOpen(true);
     try {
-      const res = await fetch(`${BACKEND_URL}/movies/extract`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          code: hasCode ? extractLink.trim() : undefined,
-          trailer_url: hasTrailer ? trailerUrl.trim() : undefined,
-          headless: extractHeadless,
-        }),
+      const res = await axios.post(`${BACKEND_URL}/movies/extract`, {
+        code: extractCode.trim() || undefined,
+        trailer_url: extractUrl.trim() || undefined,
+        headless: extractHeadless,
       });
 
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.message || "Extract gagal");
-      }
+      const data = res.data;
+      if (data) {
+        setFormData((prev) => ({
+          ...prev,
+          code: data.code || prev.code || extractCode.trim(),
+          title: data.title || prev.title,
+          overview: data.overview || prev.overview,
+          country: data.country || prev.country,
+          language: data.language || prev.language,
+          release_date: data.release_date || prev.release_date,
+          director: data.directors?.join(", ") || prev.director,
+          studio: data.studios?.join(", ") || prev.studio,
+          label: data.labels?.join(", ") || prev.label,
+          series: data.series?.join(", ") || prev.series,
+          genres: data.genres?.join(", ") || prev.genres,
+          cast: data.casts?.join(", ") || prev.cast,
+        }));
 
-      const data = await res.json();
-
-      setFormData((prev) => ({
-        ...prev,
-        code: data.code || prev.code,
-        title: data.title || prev.title,
-        overview: data.overview || prev.overview,
-        director: data.director || prev.director,
-        studio: data.studio || prev.studio,
-        label: data.label || prev.label,
-        country: data.country || prev.country,
-        language: data.language || prev.language,
-        release_date: data.release_date || prev.release_date,
-        cast: data.cast || prev.cast,
-        runtime_minutes: data.runtime_minutes || prev.runtime_minutes,
-        series: data.series || prev.series,
-        genres: data.genres || prev.genres,
-      }));
-
-      const fetchFileFromUrl = async (
-        url: string,
-        defaultName: string,
-      ): Promise<File | null> => {
-        try {
-          let targetUrl = url;
-          if (url.includes("pics.dmm.co.jp") || url.startsWith("http")) {
-            if (url.includes("pics.dmm.co.jp")) {
-              targetUrl = `${BACKEND_URL}/movies/extract/cover?url=${encodeURIComponent(url)}`;
-            }
-          }
-          const res = await fetch(targetUrl);
-          if (!res.ok) throw new Error(`HTTP ${res.status}`);
-          const blob = await res.blob();
-          return new File([blob], defaultName, { type: blob.type });
-        } catch (err) {
-          console.error(`Gagal load file dari ${url}:`, err);
-          return null;
-        }
-      };
-
-      if (data.cover_url) {
-        try {
-          const file = await fetchFileFromUrl(
-            data.cover_url,
-            `${data.code || "cover"}.jpg`,
-          );
-          if (file) {
-            setCoverFile(file);
-            setCoverPreview(URL.createObjectURL(file));
-          }
-        } catch (e) {
-          console.error("Gagal mendownload cover preview:", e);
-        }
-      }
-
-      if (data.gallery_urls && Array.isArray(data.gallery_urls)) {
-        const newGalleryFiles: File[] = [];
-        const newGalleryPreviews: string[] = [];
-
-        for (let i = 0; i < data.gallery_urls.length; i++) {
-          const url = data.gallery_urls[i];
+        if (data.cover_url) {
           try {
-            const file = await fetchFileFromUrl(
-              url,
-              `${data.code || "gallery"}_${i}.jpg`,
-            );
-            if (file) {
-              newGalleryFiles.push(file);
-              newGalleryPreviews.push(URL.createObjectURL(file));
-            } else {
-              newGalleryPreviews.push(url);
+            const coverRes = await fetch(data.cover_url);
+            const blob = await coverRes.blob();
+            const objectUrl = URL.createObjectURL(blob);
+            setRawCoverFileName("extracted_cover.jpg");
+            setRawCoverSrc(objectUrl);
+            setCropModalOpen(true);
+          } catch (e) {
+            console.error("Gagal mendownload cover:", e);
+          }
+        }
+
+        if (data.trailer_url) {
+          try {
+            const videoRes = await fetch(data.trailer_url);
+            const blob = await videoRes.blob();
+            const file = new File([blob], "trailer.mp4", {
+              type: blob.type || "video/mp4",
+            });
+            if (videoPreviewRef.current) {
+              URL.revokeObjectURL(videoPreviewRef.current);
+            }
+            const objectUrl = URL.createObjectURL(file);
+            setVideoFile(file);
+            setVideoPreview(objectUrl);
+
+            const minutes = await getVideoRuntimeMinutes(file);
+            if (minutes > 0) {
+              setFormData((prev) => ({ ...prev, runtime_minutes: minutes }));
             }
           } catch (e) {
-            console.error(`Gagal mendownload gallery preview ${i}:`, e);
-            newGalleryPreviews.push(url);
+            console.error("Gagal mendownload trailer video:", e);
           }
-        }
-
-        setGalleryFiles(newGalleryFiles);
-        setGalleryPreviews(newGalleryPreviews);
-      }
-
-      if (data.trailer_url) {
-        try {
-          const proxyTrailerUrl = `${BACKEND_URL}/movies/extract/trailer?url=${encodeURIComponent(data.trailer_url)}`;
-          const videoRes = await fetch(proxyTrailerUrl);
-          if (!videoRes.ok) {
-            throw new Error(`Status ${videoRes.status}`);
-          }
-          const blob = await videoRes.blob();
-          const file = new File([blob], `${data.code || "trailer"}.mp4`, {
-            type: "video/mp4",
-          });
-          if (videoPreviewRef.current) {
-            URL.revokeObjectURL(videoPreviewRef.current);
-          }
-          const objectUrl = URL.createObjectURL(file);
-          setVideoFile(file);
-          setVideoPreview(objectUrl);
-
-          const minutes = await getVideoRuntimeMinutes(file);
-          if (minutes > 0) {
-            setFormData((prev) => ({ ...prev, runtime_minutes: minutes }));
-          }
-        } catch (e) {
-          console.error("Gagal mendownload trailer video:", e);
         }
       }
 
@@ -373,6 +291,10 @@ export default function UploadClient({ statusOptions }: UploadClientProps) {
     }
   }, [isSubmitting, uploadProgress, uploadError]);
 
+  const UploadSchema = z.object({
+    code: z.string().min(1, "Kode film wajib diisi"),
+  });
+
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
@@ -406,6 +328,8 @@ export default function UploadClient({ statusOptions }: UploadClientProps) {
       form.append("title", formData.title.trim() || formData.code.trim());
       form.append("overview", formData.overview.trim());
       if (formData.status) form.append("status", formData.status);
+      if (formData.censorship_code)
+        form.append("censorship_code", formData.censorship_code);
       if (formData.country) form.append("country", formData.country);
       if (formData.language) form.append("language", formData.language);
       if (formData.release_date)
@@ -448,708 +372,506 @@ export default function UploadClient({ statusOptions }: UploadClientProps) {
             (progressEvent.loaded * 100) / total,
           );
           setUploadProgress(percentCompleted);
-
-          if (uploadToastIdRef.current) {
-            toast.loading("Mengunggah file...", {
-              id: uploadToastIdRef.current,
-              description: `Progress: ${percentCompleted}%`,
-            });
-          }
         },
       });
 
-      const successMsg = response.data?.message ?? "Film berhasil diunggah!";
-
       if (uploadToastIdRef.current) {
-        toast.success(successMsg, { id: uploadToastIdRef.current });
-        uploadToastIdRef.current = null;
+        toast.dismiss(uploadToastIdRef.current);
       }
-
-      setFormData({
-        code: "",
-        title: "",
-        status: statusOptions[0]?.id || "",
-        overview: "",
-        director: "",
-        studio: "",
-        label: "",
-        genres: "",
-        cast: "",
-        series: "",
-        country: "",
-        language: "",
-        release_date: "",
-        runtime_minutes: 0,
-      });
-      setCoverFile(null);
-      setCoverPreview(null);
-      setVideoFile(null);
-      setVideoPreview(null);
-      setGalleryFiles([]);
-      setGalleryPreviews([]);
-      setActiveTab("media");
-      router.refresh();
+      toast.success("Film berhasil diunggah!");
+      router.push(`/movie/${response.data.id}`);
     } catch (error: any) {
-      if (axios.isCancel(error) || error.name === "CanceledError") {
-        toast.info("Upload dibatalkan.");
-        setUploadError(null);
-        if (uploadToastIdRef.current) {
-          toast.dismiss(uploadToastIdRef.current);
-          uploadToastIdRef.current = null;
-        }
+      if (axios.isCancel(error)) {
+        toast.error("Upload dibatalkan");
       } else {
-        console.error("Upload failed:", error);
         const msg =
           error.response?.data?.message ||
           error.message ||
-          "Terjadi kesalahan saat mengunggah film.";
-
-        setUploadError(msg);
-
+          "Gagal mengunggah film";
+        setUploadError(Array.isArray(msg) ? msg.join(", ") : msg);
         if (uploadToastIdRef.current) {
-          toast.error(msg, {
-            id: uploadToastIdRef.current,
-            description: undefined,
-          });
-          uploadToastIdRef.current = null;
-        } else {
-          toast.error(msg);
+          toast.dismiss(uploadToastIdRef.current);
         }
+        toast.error(Array.isArray(msg) ? msg.join(", ") : msg);
       }
     } finally {
       setIsSubmitting(false);
-      setUploadProgress(0);
       uploadToastIdRef.current = null;
-      abortControllerRef.current = null;
-    }
-  };
-
-  const handleCancelUpload = () => {
-    if (abortControllerRef.current) {
-      abortControllerRef.current.abort();
     }
   };
 
   return (
-    <div className="bg-white min-h-screen">
+    <div className="min-h-screen bg-slate-950 text-slate-100 pb-16">
       <Header
-        center={
-          <div className="flex items-center justify-center">
-            {formData.code.trim() ? (
-              <span className="inline-flex items-center px-3 py-1 rounded-lg text-sm font-semibold tracking-wider font-mono bg-slate-100 text-slate-800 border border-slate-200">
-                {formData.code.trim()}
-              </span>
-            ) : (
-              <span className="text-xs text-slate-400 font-medium tracking-wide uppercase">
-                Belum ada Code ID
-              </span>
-            )}
-          </div>
-        }
-        right={
-          <div className="flex items-center gap-2">
-            {mounted && isDev && (
-              <Button
-                type="button"
-                variant="outline"
-                size="lg"
-                className="rounded-xl border-blue-200 hover:bg-blue-50 text-blue-700 shadow-sm flex items-center gap-2"
-                disabled={isSubmitting}
-                onClick={handleLoadTestData}
-              >
-                <FlaskConical className="w-4 h-4 text-blue-600" />
-                <span className="hidden sm:inline">Test Data</span>
-              </Button>
-            )}
-
-            <Dialog open={extractModalOpen} onOpenChange={setExtractModalOpen}>
-              <DialogTrigger
-                render={
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="lg"
-                    className="rounded-xl border-slate-200 hover:bg-slate-100 text-slate-700 shadow-sm flex items-center gap-2"
-                    disabled={isSubmitting}
-                  >
-                    <Sparkles className="w-4 h-4 text-rose-600" />
-                    <span className="hidden sm:inline">Extract</span>
-                  </Button>
-                }
-              />
-              <DialogContent className="sm:max-w-md">
-                <DialogHeader>
-                  <DialogTitle>Extract metadata</DialogTitle>
-                </DialogHeader>
-                <div className="space-y-3">
-                  <div className="space-y-1">
-                    <label
-                      className="text-sm font-medium"
-                      htmlFor="extract-code"
-                    >
-                      Code
-                    </label>
-                    <input
-                      id="extract-code"
-                      type="text"
-                      placeholder="misal: EBOD-391"
-                      value={extractLink}
-                      onChange={(e) => setExtractLink(e.target.value)}
-                      className="w-full rounded border p-2"
-                      disabled={isSubmitting || extracting}
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <label
-                      className="text-sm font-medium"
-                      htmlFor="extract-trailer"
-                    >
-                      Trailer URL (Opsional)
-                    </label>
-                    <input
-                      id="extract-trailer"
-                      type="url"
-                      placeholder="https://example.com/trailer.mp4"
-                      value={trailerUrl}
-                      onChange={(e) => setTrailerUrl(e.target.value)}
-                      className="w-full rounded border p-2"
-                      disabled={isSubmitting || extracting}
-                    />
-                  </div>
-                  <div className="flex items-center gap-2 pt-1">
-                    <input
-                      id="extract-headless"
-                      type="checkbox"
-                      checked={extractHeadless}
-                      onChange={(e) => setExtractHeadless(e.target.checked)}
-                      disabled={isSubmitting || extracting}
-                      className="h-4 w-4 rounded border-slate-300 text-rose-600 focus:ring-rose-500 cursor-pointer"
-                    />
-                    <label
-                      htmlFor="extract-headless"
-                      className="text-xs text-slate-600 select-none cursor-pointer"
-                    >
-                      Headless Browser (tanpa jendela Chrome)
-                    </label>
-                  </div>
-                </div>
-                <DialogFooter>
-                  <Button
-                    onClick={handleExtract}
-                    disabled={
-                      (!extractLink.trim() && !trailerUrl.trim()) || extracting
-                    }
-                  >
-                    {extracting ? "Extracting..." : "Extract"}
-                  </Button>
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
-
-            {isSubmitting ? (
-              <Button
-                type="button"
-                size="lg"
-                variant="destructive"
-                className="rounded-xl shadow-md flex items-center gap-2"
-                onClick={handleCancelUpload}
-              >
-                <X className="w-4 h-4" />
-                <span className="hidden sm:inline">Batalkan</span>
-              </Button>
-            ) : (
-              <Button
-                type="submit"
-                form="upload-form"
-                size="lg"
-                className="rounded-xl bg-rose-600 hover:bg-rose-700 text-white shadow-md shadow-rose-600/20 flex items-center gap-2"
-                disabled={isSubmitting}
-              >
-                <Upload className="w-4 h-4" />
-                <span className="hidden sm:inline">Upload</span>
-              </Button>
-            )}
-            <Button
-              variant="outline"
-              size="lg"
-              className="rounded-xl border-slate-200 text-slate-600 hover:text-slate-900 hover:bg-slate-50"
-            >
-              <Link href="../settings" title="Settings">
-                <Settings className="w-4 h-4" />
-              </Link>
-            </Button>
-          </div>
-        }
+        center={<h1 className="text-xl font-bold">Upload Film Baru</h1>}
       />
 
-      <div className="max-w-7xl w-full mx-auto px-4 sm:px-8 py-5">
-        <form id="upload-form" onSubmit={handleSubmit}>
+      <ImageCropperModal
+        isOpen={cropModalOpen}
+        imageSrc={rawCoverSrc}
+        fileName={rawCoverFileName}
+        onClose={() => setCropModalOpen(false)}
+        onCropComplete={handleCroppedCoverComplete}
+      />
+
+      <main className="max-w-5xl mx-auto px-4 py-8">
+        <form onSubmit={handleSubmit} className="space-y-8">
           <Tabs
             value={activeTab}
             onValueChange={setActiveTab}
-            className="w-full"
+            className="space-y-6"
           >
-            <TabsList className="w-full mb-3 max-w-sm bg-slate-100 p-1 rounded-xl mx-auto grid grid-cols-2">
-              <TabsTrigger
-                value="media"
-                className="rounded-lg flex items-center justify-center gap-2 text-xs font-semibold"
-              >
-                <Film className="w-4 h-4" />
-                <span>Media</span>
-              </TabsTrigger>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-800 pb-4">
+              <TabsList className="bg-slate-900 border border-slate-800 p-1 rounded-xl">
+                <TabsTrigger
+                  value="media"
+                  className="rounded-lg data-[state=active]:bg-indigo-600 data-[state=active]:text-white"
+                >
+                  Media & File
+                </TabsTrigger>
+                <TabsTrigger
+                  value="metadata"
+                  className="rounded-lg data-[state=active]:bg-indigo-600 data-[state=active]:text-white"
+                >
+                  Metadata & Detail
+                </TabsTrigger>
+              </TabsList>
 
-              <TabsTrigger
-                value="metadata"
-                className="rounded-lg flex items-center justify-center gap-2 text-xs font-semibold"
-              >
-                <FileText className="w-4 h-4" />
-                <span>Metadata</span>
-              </TabsTrigger>
-            </TabsList>
+              <div className="flex items-center gap-3">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setExtractModalOpen(true)}
+                  className="border-indigo-500/30 text-indigo-400 hover:bg-indigo-500/10 flex items-center gap-2"
+                >
+                  <Sparkles className="w-4 h-4" />
+                  Auto-Extract Link
+                </Button>
 
-            <TabsContent
-              value="media"
-              className="mt-0 outline-none flex flex-col gap-4 h-155"
-            >
-              {/* Row 1: Cover and Video side by side */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 h-105 shrink-0">
-                <div className="flex flex-col h-full">
-                  <div className="relative flex-1 border-2 border-dashed border-slate-300 hover:border-rose-500 rounded-xl bg-slate-50/80 hover:bg-rose-50/30 flex items-center justify-center p-2 text-center transition-all group overflow-hidden">
-                    {coverPreview ? (
-                      <div className="relative w-full h-full flex items-center justify-center">
-                        <img
-                          src={coverPreview}
-                          alt="Cover Preview"
-                          className="w-full h-full object-contain rounded-lg shadow-sm"
+                <Dialog
+                  open={extractModalOpen}
+                  onOpenChange={setExtractModalOpen}
+                >
+                  <DialogContent className="bg-slate-900 border-slate-800 text-slate-100">
+                    <DialogHeader>
+                      <DialogTitle>Extract Metadata & Trailer</DialogTitle>
+                    </DialogHeader>
+                    <div className="space-y-4 py-2">
+                      <div>
+                        <Label htmlFor="extract_code">Kode Film (Code)</Label>
+                        <Input
+                          id="extract_code"
+                          placeholder="ex. ABW-001"
+                          value={extractCode}
+                          onChange={(e) => setExtractCode(e.target.value)}
+                          className="bg-slate-950 border-slate-800 uppercase"
                         />
-                        <div className="absolute top-3 right-3 flex items-center gap-2 bg-white/90 p-1.5 rounded-lg shadow-md backdrop-blur-sm border border-slate-200/50">
-                          <label className="cursor-pointer bg-slate-100 hover:bg-slate-200 text-slate-700 px-3 py-1.5 rounded text-xs font-semibold shadow-sm transition-colors">
-                            Replace
-                            <input
-                              type="file"
-                              accept="image/*"
-                              onChange={handleCoverChange}
-                              disabled={isSubmitting}
-                              className="hidden"
-                            />
-                          </label>
-                          <Button
-                            type="button"
-                            variant="destructive"
-                            size="sm"
-                            onClick={() => {
-                              setCoverFile(null);
-                              setCoverPreview(null);
-                            }}
-                            disabled={isSubmitting}
-                            className="h-7 px-3 text-xs"
-                          >
-                            Remove
-                          </Button>
-                        </div>
                       </div>
-                    ) : (
-                      <label className="cursor-pointer flex flex-col items-center justify-center w-full h-full py-4">
-                        <div className="p-3 bg-white rounded-full shadow-xs mb-2 border border-slate-200 group-hover:border-rose-200 transition-colors">
-                          <ImageIcon className="h-6 w-6 text-slate-500 group-hover:text-rose-600 transition-colors" />
-                        </div>
-                        <Label className="text-base font-semibold text-slate-800 group-hover:text-rose-600 transition-colors">
-                          Upload Gambar Cover
+                      <div>
+                        <Label htmlFor="extract_url">
+                          Target URL / Trailer URL
                         </Label>
-                        <span className="text-[10px] font-medium text-slate-400 mt-0.5">
-                          PNG, JPG, WEBP, GIF (Boleh Kosong)
-                        </span>
-                        <input
-                          type="file"
-                          accept="image/*"
-                          onChange={handleCoverChange}
-                          disabled={isSubmitting}
-                          className="hidden"
+                        <Input
+                          id="extract_url"
+                          placeholder="https://..."
+                          value={extractUrl}
+                          onChange={(e) => setExtractUrl(e.target.value)}
+                          className="bg-slate-950 border-slate-800"
                         />
-                      </label>
-                    )}
-                  </div>
-                </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="checkbox"
+                          id="headless"
+                          checked={extractHeadless}
+                          onChange={(e) => setExtractHeadless(e.target.checked)}
+                          className="rounded border-slate-700 bg-slate-950 text-indigo-600"
+                        />
+                        <Label
+                          htmlFor="headless"
+                          className="text-sm font-normal cursor-pointer"
+                        >
+                          Gunakan Headless Browser (Puppeteer)
+                        </Label>
+                      </div>
+                    </div>
+                    <DialogFooter>
+                      <Button
+                        type="button"
+                        onClick={handleExtract}
+                        disabled={extracting}
+                        className="bg-indigo-600 hover:bg-indigo-500 text-white w-full"
+                      >
+                        {extracting ? "Mengekstrak..." : "Mulai Extract"}
+                      </Button>
+                    </DialogFooter>
+                  </DialogContent>
+                </Dialog>
 
-                <div className="flex flex-col md:col-span-2 h-full min-h-0 overflow-hidden">
-                  <div className="relative flex-1 h-full min-h-0 border-2 border-dashed border-slate-300 hover:border-rose-500 rounded-xl bg-slate-50/80 hover:bg-rose-50/30 flex items-center justify-center p-2 transition-all group overflow-hidden">
-                    {videoPreview ? (
-                      <div className="relative w-full h-full max-h-full flex items-center justify-center bg-black/5 rounded-lg overflow-hidden">
+                <Button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="bg-indigo-600 hover:bg-indigo-500 text-white font-semibold px-6 shadow-lg shadow-indigo-600/20"
+                >
+                  <Upload className="w-4 h-4 mr-2" />
+                  {isSubmitting
+                    ? `Mengunggah (${uploadProgress}%)`
+                    : "Upload Film"}
+                </Button>
+              </div>
+            </div>
+
+            {/* TAB MEDIA */}
+            <TabsContent value="media" className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Cover Upload & Crop */}
+                <Card className="bg-slate-900/60 border-slate-800">
+                  <CardContent className="p-6 space-y-4">
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-lg font-semibold text-white flex items-center gap-2">
+                        <ImageIcon className="text-indigo-400" size={20} />
+                        Cover Film
+                      </h3>
+                      {coverPreview && (
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          onClick={() => setCropModalOpen(true)}
+                          className="border-indigo-500/30 text-indigo-400 text-xs"
+                        >
+                          <Crop className="w-3.5 h-3.5 mr-1" /> Crop Ulang
+                        </Button>
+                      )}
+                    </div>
+                    <div className="relative aspect-2/3 border-2 border-dashed border-slate-700 rounded-xl bg-slate-950 flex items-center justify-center overflow-hidden group">
+                      {coverPreview ? (
+                        <Image
+                          src={coverPreview}
+                          alt="Cover preview"
+                          fill
+                          className="object-cover"
+                          unoptimized
+                        />
+                      ) : (
+                        <div className="text-center p-6 text-slate-500">
+                          <ImageIcon className="w-12 h-12 mx-auto mb-2 opacity-40" />
+                          <p className="text-sm">Belum ada cover</p>
+                        </div>
+                      )}
+                    </div>
+                    <div>
+                      <Label
+                        htmlFor="cover_file"
+                        className="cursor-pointer block"
+                      >
+                        <div className="w-full py-2.5 px-4 bg-slate-800 hover:bg-slate-700 text-slate-200 text-center font-medium rounded-xl transition-colors border border-slate-700">
+                          Pilih File Cover
+                        </div>
+                      </Label>
+                      <Input
+                        id="cover_file"
+                        type="file"
+                        accept="image/*"
+                        onChange={handleCoverChange}
+                        className="hidden"
+                      />
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Video Upload */}
+                <Card className="bg-slate-900/60 border-slate-800">
+                  <CardContent className="p-6 space-y-4">
+                    <h3 className="text-lg font-semibold text-white flex items-center gap-2">
+                      <Film className="text-indigo-400" size={20} />
+                      File Video Utama (MP4 / WebM)
+                    </h3>
+                    <div className="relative aspect-video border-2 border-dashed border-slate-700 rounded-xl bg-slate-950 flex items-center justify-center overflow-hidden">
+                      {videoPreview ? (
                         <video
                           src={videoPreview}
                           controls
-                          className="w-full h-full max-h-full object-contain rounded-lg shadow-sm"
+                          className="w-full h-full object-contain"
                         />
-                        <div className="absolute top-3 right-3 flex items-center gap-2 bg-white/90 p-1.5 rounded-lg shadow-md backdrop-blur-sm border border-slate-200/50">
-                          <label className="cursor-pointer bg-slate-100 hover:bg-slate-200 text-slate-700 px-3 py-1.5 rounded text-xs font-semibold shadow-sm transition-colors">
-                            Replace
-                            <input
-                              type="file"
-                              accept="video/*"
-                              onChange={handleVideoChange}
-                              disabled={isSubmitting}
-                              className="hidden"
-                            />
-                          </label>
-                          <Button
-                            type="button"
-                            variant="destructive"
-                            size="sm"
-                            onClick={() => {
-                              setVideoFile(null);
-                              if (videoPreview)
-                                URL.revokeObjectURL(videoPreview);
-                              setVideoPreview(null);
-                            }}
-                            disabled={isSubmitting}
-                            className="h-7 px-3 text-xs"
-                          >
-                            Remove
-                          </Button>
+                      ) : (
+                        <div className="text-center p-6 text-slate-500">
+                          <Film className="w-12 h-12 mx-auto mb-2 opacity-40" />
+                          <p className="text-sm">Belum ada video dipilih</p>
                         </div>
-                      </div>
-                    ) : (
-                      <Label className="cursor-pointer flex flex-col items-center justify-center w-full h-full">
-                        <Film className="h-8 w-8 mb-3 text-slate-500 group-hover:text-rose-600 transition-colors" />
-                        <Label className="text-base font-medium text-slate-800 group-hover:text-rose-600 transition-colors truncate max-w-xs px-4 text-center">
-                          Pilih File Video
-                        </Label>
-                        <span className="text-[10px] text-slate-400 font-medium mt-1">
-                          MP4, WebM (Boleh Kosong)
-                        </span>
-                        <input
-                          type="file"
-                          accept="video/mp4,video/webm"
-                          onChange={handleVideoChange}
-                          disabled={isSubmitting}
-                          className="hidden"
-                        />
-                      </Label>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              {/* Row 2: Gallery below */}
-              <div className="bg-slate-50/50 p-4 rounded-xl border border-slate-200 flex-1 min-h-0 overflow-hidden flex flex-col">
-                <div className="flex items-center justify-between mb-3">
-                  <div className="flex items-center gap-2">
-                    <Label className="text-sm font-semibold text-slate-700">
-                      Gallery
-                    </Label>
-                    {galleryPreviews.length > 0 && (
-                      <span className="text-xs bg-slate-200 text-slate-700 px-2 py-0.5 rounded-full font-medium">
-                        {galleryPreviews.length} foto
-                      </span>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-2">
-                    {galleryPreviews.length > 0 && (
-                      <Button
-                        type="button"
-                        variant="destructive"
-                        size="sm"
-                        disabled={isSubmitting}
-                        onClick={() => {
-                          galleryPreviews.forEach((url) => {
-                            try {
-                              URL.revokeObjectURL(url);
-                            } catch {}
-                          });
-                          setGalleryFiles([]);
-                          setGalleryPreviews([]);
-                          toast.info("Semua foto galeri dibersihkan");
-                        }}
-                        className="h-7 px-2.5 text-xs font-medium"
-                      >
-                        Clear All
-                      </Button>
-                    )}
-                    <label className="cursor-pointer bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 px-3 py-1.5 rounded-lg text-xs font-medium shadow-xs transition-colors flex items-center gap-1.5">
-                      <ImageIcon className="w-3.5 h-3.5 text-slate-500" />
-                      Tambah Foto
-                      <input
-                        type="file"
-                        accept="image/*"
-                        multiple
-                        onChange={(e) => {
-                          const files = Array.from(e.target.files || []);
-                          if (files.length === 0) return;
-
-                          const newFiles = [...galleryFiles, ...files];
-                          const newPreviews = [...galleryPreviews];
-
-                          files.forEach((file) => {
-                            newPreviews.push(URL.createObjectURL(file));
-                          });
-
-                          setGalleryFiles(newFiles);
-                          setGalleryPreviews(newPreviews);
-                        }}
-                        disabled={isSubmitting}
-                        className="hidden"
-                      />
-                    </label>
-                  </div>
-                </div>
-
-                {galleryPreviews.length === 0 ? (
-                  <div className="text-center py-6 border-2 border-dashed border-slate-200 rounded-lg text-xs text-slate-400 flex-1 flex items-center justify-center">
-                    Belum ada foto gallery
-                  </div>
-                ) : (
-                  <div className="flex gap-3 overflow-x-auto pb-2 pt-1 scrollbar-thin flex-1">
-                    {galleryPreviews.map((url, idx) => (
-                      <div
-                        key={idx}
-                        className="relative shrink-0 w-36 h-24 rounded-lg overflow-hidden border border-slate-200 group"
-                      >
-                        <img
-                          src={url}
-                          alt={`gallery-${idx}`}
-                          className="w-full h-full object-cover"
-                        />
-                        <Button
-                          type="button"
-                          variant="destructive"
-                          size="xs"
-                          className="absolute top-1 right-1 h-6 w-6 p-0 rounded-full opacity-80 group-hover:opacity-100 shadow-sm"
-                          onClick={() => {
-                            try {
-                              URL.revokeObjectURL(url);
-                            } catch {}
-                            setGalleryPreviews((p) =>
-                              p.filter((_, i) => i !== idx),
-                            );
-                            setGalleryFiles((f) =>
-                              f.filter((_, i) => i !== idx),
-                            );
-                          }}
-                        >
-                          ✕
-                        </Button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </TabsContent>
-
-            <TabsContent
-              value="metadata"
-              className="mt-0 outline-none space-y-4"
-            >
-              <Card className="bg-white border-slate-200 shadow-sm rounded-xl px-0">
-                <CardContent className="p-6">
-                  <div className="grid grid-cols-5 gap-3">
-                    <div className="space-y-1.5">
+                      )}
+                    </div>
+                    <div>
                       <Label
-                        htmlFor="code"
-                        className="text-sm font-semibold text-slate-700"
-                        required
+                        htmlFor="video_file"
+                        className="cursor-pointer block"
                       >
-                        Code
+                        <div className="w-full py-2.5 px-4 bg-slate-800 hover:bg-slate-700 text-slate-200 text-center font-medium rounded-xl transition-colors border border-slate-700">
+                          Pilih File Video
+                        </div>
                       </Label>
                       <Input
+                        id="video_file"
+                        type="file"
+                        accept="video/mp4,video/webm,.mp4,.webm"
+                        onChange={handleVideoChange}
+                        className="hidden"
+                      />
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* Gallery Screenshots */}
+              <Card className="bg-slate-900/60 border-slate-800">
+                <CardContent className="p-6 space-y-4">
+                  <h3 className="text-lg font-semibold text-white">
+                    Galeri / Screenshot Tambahan
+                  </h3>
+                  <Input
+                    type="file"
+                    multiple
+                    accept="image/*"
+                    onChange={(e) => {
+                      const files = Array.from(e.target.files || []);
+                      setGalleryFiles((prev) => [...prev, ...files]);
+                      setGalleryPreviews((prev) => [
+                        ...prev,
+                        ...files.map((f) => URL.createObjectURL(f)),
+                      ]);
+                    }}
+                    className="bg-slate-950 border-slate-800"
+                  />
+                  {galleryPreviews.length > 0 && (
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 pt-2">
+                      {galleryPreviews.map((preview, i) => (
+                        <div
+                          key={i}
+                          className="relative aspect-video rounded-lg overflow-hidden border border-slate-800"
+                        >
+                          <Image
+                            src={preview}
+                            alt="Gallery"
+                            fill
+                            className="object-cover"
+                            unoptimized
+                          />
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setGalleryFiles((prev) =>
+                                prev.filter((_, idx) => idx !== i),
+                              );
+                              setGalleryPreviews((prev) =>
+                                prev.filter((_, idx) => idx !== i),
+                              );
+                            }}
+                            className="absolute top-1 right-1 bg-black/60 rounded-full p-1 text-white hover:bg-red-600 transition-colors"
+                          >
+                            <X size={14} />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            {/* TAB METADATA */}
+            <TabsContent value="metadata" className="space-y-6">
+              <Card className="bg-slate-900/60 border-slate-800">
+                <CardContent className="p-6 space-y-6">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                      <Label htmlFor="code">Kode Film *</Label>
+                      <Input
                         id="code"
-                        type="text"
                         name="code"
                         value={formData.code}
                         onChange={handleInputChange}
-                        placeholder="misal: FLM-001"
+                        placeholder="ex. ABW-001"
                         required
-                        disabled={isSubmitting}
-                        className="bg-slate-50/50"
+                        className="bg-slate-950 border-slate-800 uppercase"
                       />
                     </div>
-
-                    <div className="space-y-1.5 col-span-3">
-                      <Label
-                        htmlFor="title"
-                        className="text-sm font-semibold text-slate-700"
-                      >
-                        Title
-                      </Label>
+                    <div className="md:col-span-2">
+                      <Label htmlFor="title">Judul Film</Label>
                       <Input
                         id="title"
-                        type="text"
                         name="title"
                         value={formData.title}
                         onChange={handleInputChange}
-                        placeholder="Judul Film"
-                        disabled={isSubmitting}
-                        className="bg-slate-50/50"
+                        placeholder="Judul lengkap film"
+                        className="bg-slate-950 border-slate-800"
                       />
                     </div>
+                  </div>
 
-                    <div className="space-y-1.5">
-                      <Label
-                        htmlFor="status"
-                        className="text-sm font-semibold text-slate-700"
-                      >
-                        Status
-                      </Label>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <Label htmlFor="status">Status</Label>
                       <Select
                         value={formData.status}
                         onValueChange={(val) =>
-                          setFormData((prev) => ({
-                            ...prev,
-                            status: val || "",
-                          }))
+                          handleSelectChange("status", val)
                         }
-                        disabled={isSubmitting}
                       >
-                        <SelectTrigger className="bg-slate-50/50 w-full">
-                          <SelectValue placeholder="Pilih status film" />
+                        <SelectTrigger className="bg-slate-950 border-slate-800 text-slate-100">
+                          <SelectValue placeholder="Pilih status" />
                         </SelectTrigger>
-                        <SelectContent alignItemWithTrigger={false}>
-                          {statusOptions.map((opt) => (
-                            <SelectItem key={opt.id} value={opt.id}>
-                              {opt.label}
+                        <SelectContent className="bg-slate-900 border-slate-800 text-slate-100">
+                          {statusOptions.map((s) => (
+                            <SelectItem key={s.id} value={s.id}>
+                              {s.label}
                             </SelectItem>
                           ))}
                         </SelectContent>
                       </Select>
                     </div>
 
-                    <div className="space-y-1.5 col-span-full">
-                      <Label
-                        htmlFor="overview"
-                        className="text-sm font-semibold text-slate-700"
+                    <div>
+                      <Label htmlFor="censorship_code">Censorship</Label>
+                      <Select
+                        value={formData.censorship_code || ""}
+                        onValueChange={(val) =>
+                          handleSelectChange(
+                            "censorship_code",
+                            val === "UNKNOWN" ? "" : val,
+                          )
+                        }
                       >
-                        Sinopsis
-                      </Label>
-                      <Textarea
-                        id="overview"
-                        name="overview"
-                        value={formData.overview}
-                        onChange={handleInputChange}
-                        placeholder="Ringkasan cerita film"
-                        disabled={isSubmitting}
-                        className="h-24 bg-slate-50/50"
-                      />
+                        <SelectTrigger className="bg-slate-950 border-slate-800 text-slate-100">
+                          <SelectValue placeholder="Unknown / Default" />
+                        </SelectTrigger>
+                        <SelectContent className="bg-slate-900 border-slate-800 text-slate-100">
+                          <SelectItem value="UNKNOWN">
+                            Unknown (Default)
+                          </SelectItem>
+                          {censorshipOptions.map((c) => (
+                            <SelectItem key={c.id} value={c.id}>
+                              {c.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </div>
                   </div>
-                </CardContent>
-              </Card>
 
-              <Card className="bg-white border-slate-200 shadow-sm rounded-xl px-0">
-                <CardContent className="p-6">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div className="space-y-1.5">
-                      <Label className="text-sm font-semibold text-slate-700">
-                        Director
-                      </Label>
+                  <div>
+                    <Label htmlFor="overview">Overview / Sinopsis</Label>
+                    <Textarea
+                      id="overview"
+                      name="overview"
+                      value={formData.overview}
+                      onChange={handleInputChange}
+                      rows={4}
+                      placeholder="Sinopsis film..."
+                      className="bg-slate-950 border-slate-800"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                    <div>
+                      <Label htmlFor="director">Director</Label>
                       <Input
+                        id="director"
                         name="director"
                         value={formData.director}
                         onChange={handleInputChange}
-                        placeholder="Pisahkan dengan koma"
-                        className="bg-slate-50/50"
+                        placeholder="Pisah koma"
+                        className="bg-slate-950 border-slate-800"
                       />
                     </div>
-
-                    <div className="space-y-1.5">
-                      <Label className="text-sm font-semibold text-slate-700">
-                        Studio
-                      </Label>
+                    <div>
+                      <Label htmlFor="studio">Studio</Label>
                       <Input
+                        id="studio"
                         name="studio"
                         value={formData.studio}
                         onChange={handleInputChange}
-                        placeholder="Pisahkan dengan koma"
-                        className="bg-slate-50/50"
+                        placeholder="Pisah koma"
+                        className="bg-slate-950 border-slate-800"
                       />
                     </div>
-
-                    <div className="space-y-1.5">
-                      <Label className="text-sm font-semibold text-slate-700">
-                        Label
-                      </Label>
+                    <div>
+                      <Label htmlFor="label">Label</Label>
                       <Input
+                        id="label"
                         name="label"
                         value={formData.label}
                         onChange={handleInputChange}
-                        placeholder="Pisahkan dengan koma"
-                        className="bg-slate-50/50"
+                        placeholder="Pisah koma"
+                        className="bg-slate-950 border-slate-800"
                       />
                     </div>
-
-                    <div className="space-y-1.5">
-                      <Label className="text-sm font-semibold text-slate-700">
-                        Country
-                      </Label>
+                    <div>
+                      <Label htmlFor="series">Series</Label>
                       <Input
+                        id="series"
+                        name="series"
+                        value={formData.series}
+                        onChange={handleInputChange}
+                        placeholder="Pisah koma"
+                        className="bg-slate-950 border-slate-800"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="genres">Genres</Label>
+                      <Input
+                        id="genres"
+                        name="genres"
+                        value={formData.genres}
+                        onChange={handleInputChange}
+                        placeholder="Pisah koma"
+                        className="bg-slate-950 border-slate-800"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="cast">Cast (Pemeran)</Label>
+                      <Input
+                        id="cast"
+                        name="cast"
+                        value={formData.cast}
+                        onChange={handleInputChange}
+                        placeholder="Pisah koma"
+                        className="bg-slate-950 border-slate-800"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div>
+                      <Label htmlFor="country">Country</Label>
+                      <Input
+                        id="country"
                         name="country"
                         value={formData.country}
                         onChange={handleInputChange}
-                        placeholder="Contoh: USA, Indonesia"
-                        className="bg-slate-50/50"
+                        placeholder="ex. Japan"
+                        className="bg-slate-950 border-slate-800"
                       />
                     </div>
-
-                    <div className="space-y-1.5">
-                      <Label className="text-sm font-semibold text-slate-700">
-                        Language
-                      </Label>
+                    <div>
+                      <Label htmlFor="language">Language</Label>
                       <Input
+                        id="language"
                         name="language"
                         value={formData.language}
                         onChange={handleInputChange}
-                        placeholder="Contoh: English, Indonesian"
-                        className="bg-slate-50/50"
+                        placeholder="ex. Japanese"
+                        className="bg-slate-950 border-slate-800"
                       />
                     </div>
-
-                    <div className="space-y-1.5">
-                      <Label className="text-sm font-semibold text-slate-700">
-                        Release Date
-                      </Label>
+                    <div>
+                      <Label htmlFor="release_date">Release Date</Label>
                       <Input
+                        id="release_date"
                         name="release_date"
                         type="date"
                         value={formData.release_date}
                         onChange={handleInputChange}
-                        className="bg-slate-50/50"
-                      />
-                    </div>
-
-                    <div className="space-y-1.5">
-                      <Label className="text-sm font-semibold text-slate-700">
-                        Series
-                      </Label>
-                      <Input
-                        name="series"
-                        value={formData.series}
-                        onChange={handleInputChange}
-                        placeholder="Pisahkan dengan koma"
-                        className="bg-slate-50/50"
-                      />
-                    </div>
-
-                    <div className="space-y-1.5 sm:col-span-2">
-                      <Label className="text-sm font-semibold text-slate-700">
-                        Cast
-                      </Label>
-                      <Input
-                        name="cast"
-                        value={formData.cast}
-                        onChange={handleInputChange}
-                        placeholder="Pisahkan dengan koma"
-                        className="bg-slate-50/50"
-                      />
-                    </div>
-
-                    <div className="space-y-1.5 sm:col-span-2">
-                      <Label className="text-sm font-semibold text-slate-700">
-                        Genre / Tags
-                      </Label>
-                      <Input
-                        name="genres"
-                        value={formData.genres}
-                        onChange={handleInputChange}
-                        placeholder="Pisahkan dengan koma"
-                        className="bg-slate-50/50"
+                        className="bg-slate-950 border-slate-800"
                       />
                     </div>
                   </div>
@@ -1158,7 +880,7 @@ export default function UploadClient({ statusOptions }: UploadClientProps) {
             </TabsContent>
           </Tabs>
         </form>
-      </div>
+      </main>
     </div>
   );
 }

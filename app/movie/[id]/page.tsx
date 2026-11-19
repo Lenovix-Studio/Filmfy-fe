@@ -161,6 +161,20 @@ export default async function MovieDetailPage({ params }: MovieDetailProps) {
                     <span className="px-3 py-1 bg-indigo-600/80 text-indigo-100 font-mono text-xs rounded-md border border-indigo-500/30 font-semibold uppercase">
                       {movie.code}
                     </span>
+                    {movie.censorship_code &&
+                      movie.censorship_code.toUpperCase() !== "UNKNOWN" && (
+                        <span
+                          className={`px-3 py-1 font-mono text-xs rounded-md border font-semibold uppercase tracking-wider ${
+                            movie.censorship_code
+                              .toUpperCase()
+                              .includes("UNCENSORED")
+                              ? "bg-emerald-500/15 text-emerald-400 border-emerald-500/30"
+                              : "bg-rose-500/15 text-rose-400 border-rose-500/30"
+                          }`}
+                        >
+                          {movie.censorship_code}
+                        </span>
+                      )}
                   </div>
 
                   <h1 className="text-2xl md:text-4xl font-bold tracking-tight text-white">

@@ -44,6 +44,29 @@ async function getStatusOptions(): Promise<{ id: string; label: string }[]> {
   }
 }
 
+async function getCensorshipOptions(): Promise<
+  { id: string; label: string }[]
+> {
+  try {
+    const res = await fetch(`${BACKEND_URL}/common-codes/CENSORSHIP/details`, {
+      cache: "no-store",
+    });
+
+    if (!res.ok) return [];
+
+    const result = await res.json();
+    const arrayData = Array.isArray(result) ? result : result?.data || [];
+
+    return arrayData
+      .filter((item: any) => item.is_active !== false)
+      .sort((a: any, b: any) => (a.order ?? 0) - (b.order ?? 0))
+      .map((item: any) => ({ id: item.code, label: item.label }));
+  } catch (error) {
+    console.error("Gagal mengambil censorship:", error);
+    return [];
+  }
+}
+
 export async function generateMetadata({
   params,
 }: {
@@ -70,9 +93,10 @@ export default async function EditMoviePage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const [movie, statusOptions] = await Promise.all([
+  const [movie, statusOptions, censorshipOptions] = await Promise.all([
     getMovieDetail(id),
     getStatusOptions(),
+    getCensorshipOptions(),
   ]);
 
   if (!movie) {
@@ -81,7 +105,11 @@ export default async function EditMoviePage({
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100">
-      <EditMovieClient movie={movie} statusOptions={statusOptions} />
+      <EditMovieClient
+        movie={movie}
+        statusOptions={statusOptions}
+        censorshipOptions={censorshipOptions}
+      />
     </div>
   );
 }
