@@ -3,9 +3,25 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { BACKEND_URL, STORAGE_URL } from "@/lib/constant";
 import { CastDetailBackend } from "@/lib/types";
+import {
+  formatDateWithAge,
+  formatDebutWithDuration,
+  formatThreeSizes,
+} from "@/lib/utils";
 import Header from "@/components/Header";
 import { Button } from "@/components/ui/button";
-import { Edit, Film, User, ImageIcon } from "lucide-react";
+import {
+  Edit,
+  Film,
+  User,
+  ImageIcon,
+  Calendar,
+  MapPin,
+  Ruler,
+  Briefcase,
+  Sparkles,
+  ExternalLink,
+} from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
@@ -25,6 +41,23 @@ async function getCast(id: string): Promise<CastDetailBackend | null> {
   }
 }
 
+function getSocialMediaUrl(
+  platform: string,
+  handle: string,
+  url?: string | null,
+) {
+  if (url && (url.startsWith("http://") || url.startsWith("https://"))) {
+    return url;
+  }
+  const cleanHandle = handle.replace(/^@/, "").trim();
+  const p = platform.toLowerCase();
+  if (p.includes("instagram")) return `https://instagram.com/${cleanHandle}`;
+  if (p.includes("twitter") || p === "x") return `https://x.com/${cleanHandle}`;
+  if (p.includes("tiktok")) return `https://tiktok.com/@${cleanHandle}`;
+  if (p.includes("youtube")) return `https://youtube.com/@${cleanHandle}`;
+  return url || "#";
+}
+
 export default async function CastPage({ params }: CastPageProps) {
   const { id } = await params;
   const cast = await getCast(id);
@@ -42,6 +75,28 @@ export default async function CastPage({ params }: CastPageProps) {
   const galleryImages =
     cast.images?.filter((img) => img.image_type === "cast_gallery") || [];
 
+  const threeSizes = formatThreeSizes(
+    cast.bust,
+    cast.cup,
+    cast.waist,
+    cast.hip,
+  );
+
+  const bodyDisplay = [
+    cast.height ? `${cast.height}cm` : null,
+    cast.body_notes || null,
+  ]
+    .filter(Boolean)
+    .join(", ");
+
+  const hasMetadata =
+    cast.birth_date ||
+    cast.birth_place ||
+    bodyDisplay ||
+    threeSizes ||
+    cast.agency ||
+    cast.debut_date;
+
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 pb-16">
       <Header
@@ -52,7 +107,7 @@ export default async function CastPage({ params }: CastPageProps) {
         }
       />
 
-      <main className="max-w-6xl mx-auto px-4 py-8 space-y-12">
+      <main className="max-w-6xl mx-auto px-4 py-8 space-y-10">
         {/* Profile Header Section */}
         <section className="bg-slate-900/80 border border-slate-800 rounded-2xl p-6 md:p-8 shadow-xl backdrop-blur-sm">
           <div className="flex flex-col md:flex-row items-center md:items-start gap-8">
@@ -92,25 +147,153 @@ export default async function CastPage({ params }: CastPageProps) {
               </div>
 
               {cast.bio ? (
-                <p className="text-slate-300 text-sm md:text-base leading-relaxed max-w-3xl">
+                <p className="text-slate-300 text-sm md:text-base leading-relaxed max-w-3xl whitespace-pre-line">
                   {cast.bio}
                 </p>
               ) : (
                 <p className="text-slate-500 italic text-sm">
-                  Tidak ada biografi.
+                  Tidak ada biografi / deskripsi.
                 </p>
+              )}
+
+              {/* Social Media Links */}
+              {cast.social_media && cast.social_media.length > 0 && (
+                <div className="pt-2 flex flex-wrap items-center justify-center md:justify-start gap-2">
+                  {cast.social_media.map((s) => {
+                    const href = getSocialMediaUrl(s.platform, s.handle, s.url);
+                    return (
+                      <a
+                        key={s.id}
+                        href={href}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700/80 text-xs font-medium text-slate-200 transition-colors"
+                      >
+                        <span className="text-indigo-400 font-semibold">
+                          {s.platform}:
+                        </span>
+                        <span>{s.handle}</span>
+                        <ExternalLink size={12} className="text-slate-400" />
+                      </a>
+                    );
+                  })}
+                </div>
               )}
 
               <div className="pt-2 flex flex-wrap items-center justify-center md:justify-start gap-4">
                 <Link href={`/cast/edit/${cast.id}`}>
                   <Button className="bg-indigo-600 hover:bg-indigo-500 text-white font-medium px-5 py-2.5 rounded-xl shadow-lg shadow-indigo-600/20 flex items-center gap-2 transition-all">
                     <Edit size={16} />
-                    Edit Profil & Foto
+                    Edit Profil & Data
                   </Button>
                 </Link>
               </div>
             </div>
           </div>
+
+          {/* Cast Details / Facts / Metadata Grid */}
+          {hasMetadata && (
+            <div className="mt-8 pt-6 border-t border-slate-800 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 text-sm">
+              {cast.birth_date && (
+                <div className="flex items-start gap-3 bg-slate-950/40 p-3.5 rounded-xl border border-slate-800/60">
+                  <Calendar
+                    className="text-indigo-400 shrink-0 mt-0.5"
+                    size={18}
+                  />
+                  <div>
+                    <span className="text-xs text-slate-400 block font-medium">
+                      Birth Date
+                    </span>
+                    <span className="text-slate-200 font-medium">
+                      {formatDateWithAge(cast.birth_date)}
+                    </span>
+                  </div>
+                </div>
+              )}
+
+              {cast.birth_place && (
+                <div className="flex items-start gap-3 bg-slate-950/40 p-3.5 rounded-xl border border-slate-800/60">
+                  <MapPin
+                    className="text-indigo-400 shrink-0 mt-0.5"
+                    size={18}
+                  />
+                  <div>
+                    <span className="text-xs text-slate-400 block font-medium">
+                      Birth Location / Nationality
+                    </span>
+                    <span className="text-slate-200 font-medium">
+                      {cast.birth_place}
+                    </span>
+                  </div>
+                </div>
+              )}
+
+              {bodyDisplay && (
+                <div className="flex items-start gap-3 bg-slate-950/40 p-3.5 rounded-xl border border-slate-800/60">
+                  <Ruler
+                    className="text-indigo-400 shrink-0 mt-0.5"
+                    size={18}
+                  />
+                  <div>
+                    <span className="text-xs text-slate-400 block font-medium">
+                      Body
+                    </span>
+                    <span className="text-slate-200 font-medium">
+                      {bodyDisplay}
+                    </span>
+                  </div>
+                </div>
+              )}
+
+              {threeSizes && (
+                <div className="flex items-start gap-3 bg-slate-950/40 p-3.5 rounded-xl border border-slate-800/60">
+                  <Sparkles
+                    className="text-indigo-400 shrink-0 mt-0.5"
+                    size={18}
+                  />
+                  <div>
+                    <span className="text-xs text-slate-400 block font-medium">
+                      Three Sizes
+                    </span>
+                    <span className="text-slate-200 font-medium">
+                      {threeSizes}
+                    </span>
+                  </div>
+                </div>
+              )}
+
+              {cast.agency && (
+                <div className="flex items-start gap-3 bg-slate-950/40 p-3.5 rounded-xl border border-slate-800/60">
+                  <Briefcase
+                    className="text-indigo-400 shrink-0 mt-0.5"
+                    size={18}
+                  />
+                  <div>
+                    <span className="text-xs text-slate-400 block font-medium">
+                      Agency
+                    </span>
+                    <span className="text-slate-200 font-medium">
+                      {cast.agency}
+                    </span>
+                  </div>
+                </div>
+              )}
+
+              {cast.debut_date && (
+                <div className="flex items-start gap-3 bg-slate-950/40 p-3.5 rounded-xl border border-slate-800/60">
+                  <Film className="text-indigo-400 shrink-0 mt-0.5" size={18} />
+                  <div>
+                    <span className="text-xs text-slate-400 block font-medium">
+                      Debut
+                    </span>
+                    <span className="text-slate-200 font-medium">
+                      {formatDebutWithDuration(cast.debut_date)}
+                    </span>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
         </section>
 
         {/* Movies List Section */}

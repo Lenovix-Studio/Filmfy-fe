@@ -137,11 +137,27 @@ export interface CastDetailBackend {
   display_name?: string;
   other_name?: string;
   bio: string | null;
+  birth_date?: string | null;
+  birth_place?: string | null;
+  height?: number | null;
+  body_notes?: string | null;
+  bust?: number | null;
+  cup?: string | null;
+  waist?: number | null;
+  hip?: number | null;
+  agency?: string | null;
+  debut_date?: string | null;
   profile_path: string | null;
   images: {
     id: string;
     file_path: string;
     image_type: string;
+  }[];
+  social_media: {
+    id: string;
+    platform: string;
+    handle: string;
+    url?: string | null;
   }[];
   movies: { id: string; title: string }[];
 }
