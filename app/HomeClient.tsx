@@ -4,7 +4,14 @@ import { useState, useMemo, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { Heart, Upload, Settings, Search, Users } from "lucide-react";
+import {
+  Heart,
+  Upload,
+  Settings,
+  Search,
+  Users,
+  AlertTriangle,
+} from "lucide-react";
 import Header from "@/components/Header";
 import { Input } from "@/components/ui/input";
 import { Movie } from "@/lib/types";
@@ -14,11 +21,13 @@ import MovieFilter from "@/components/home/MovieFilter";
 interface HomeClientProps {
   initialMovies: Movie[];
   initialFilterTabs: { id: string; label: string }[];
+  databaseError?: string | null;
 }
 
 export default function HomeClient({
   initialMovies,
   initialFilterTabs,
+  databaseError,
 }: HomeClientProps) {
   const router = useRouter();
   const ITEMS_PER_PAGE = 8;
@@ -127,6 +136,27 @@ export default function HomeClient({
           </div>
         }
       />
+      {databaseError && (
+        <div className="bg-rose-500/15 border-b border-rose-500/30 px-4 py-3 text-rose-300 flex items-center justify-between gap-4">
+          <div className="flex items-center gap-2.5 max-w-7xl mx-auto w-full px-4">
+            <AlertTriangle className="w-5 h-5 text-rose-400 shrink-0 animate-bounce" />
+            <div className="text-sm">
+              <span className="font-semibold text-rose-200">
+                Peringatan Database:{" "}
+              </span>
+              {databaseError}
+            </div>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => window.location.reload()}
+              className="ml-auto border-rose-500/40 text-rose-200 hover:bg-rose-500/20"
+            >
+              Coba Lagi
+            </Button>
+          </div>
+        </div>
+      )}
       <div className="bg-background text-foreground font-sans selection:bg-rose-500 selection:text-white">
         <main className="max-w-7xl mx-auto px-4 sm:px-8 py-3">
           <MovieFilter

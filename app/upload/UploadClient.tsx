@@ -73,6 +73,7 @@ export default function UploadClient({
   const [rawCoverFileName, setRawCoverFileName] = useState("cover.jpg");
 
   const abortControllerRef = useRef<AbortController | null>(null);
+  const extractAbortControllerRef = useRef<AbortController | null>(null);
   const [formData, setFormData] = useState<FilmFormData>({
     code: "",
     title: "",
@@ -188,13 +189,22 @@ export default function UploadClient({
       return;
     }
 
+    const controller = new AbortController();
+    extractAbortControllerRef.current = controller;
     setExtracting(true);
+
     try {
-      const res = await axios.post(`${BACKEND_URL}/movies/extract`, {
-        code: extractCode.trim() || undefined,
-        trailer_url: extractUrl.trim() || undefined,
-        headless: extractHeadless,
-      });
+      const res = await axios.post(
+        `${BACKEND_URL}/movies/extract`,
+        {
+          code: extractCode.trim() || undefined,
+          trailer_url: extractUrl.trim() || undefined,
+          headless: extractHeadless,
+        },
+        {
+          signal: controller.signal,
+        },
+      );
 
       const data = res.data;
       if (data) {
@@ -254,11 +264,28 @@ export default function UploadClient({
       setActiveTab("media");
       setExtractModalOpen(false);
       toast.success("Metadata & Trailer berhasil di-extract");
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Extract gagal");
+    } catch (error: any) {
+      if (
+        axios.isCancel(error) ||
+        error.name === "CanceledError" ||
+        error.code === "ERR_CANCELED"
+      ) {
+        toast.info("Proses extract dibatalkan");
+      } else {
+        toast.error(error instanceof Error ? error.message : "Extract gagal");
+      }
     } finally {
       setExtracting(false);
+      extractAbortControllerRef.current = null;
     }
+  };
+
+  const handleCancelExtract = () => {
+    if (extractAbortControllerRef.current) {
+      extractAbortControllerRef.current.abort();
+      extractAbortControllerRef.current = null;
+    }
+    setExtracting(false);
   };
 
   const getVideoRuntimeMinutes = (file: File): Promise<number> => {
@@ -274,6 +301,20 @@ export default function UploadClient({
     });
   };
 
+  const handleCancelUpload = () => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+    }
+    setIsSubmitting(false);
+    setUploadProgress(0);
+    if (uploadToastIdRef.current) {
+      toast.dismiss(uploadToastIdRef.current);
+      uploadToastIdRef.current = null;
+    }
+    toast.info("Upload berhasil dibatalkan");
+  };
+
   useEffect(() => {
     if (!isSubmitting || uploadError) {
       return;
@@ -282,11 +323,19 @@ export default function UploadClient({
     if (!uploadToastIdRef.current) {
       uploadToastIdRef.current = toast.loading("Mengunggah file...", {
         description: `Progress: ${uploadProgress}%`,
+        action: {
+          label: "Batalkan",
+          onClick: () => handleCancelUpload(),
+        },
       });
     } else {
       toast.loading("Mengunggah file...", {
         id: uploadToastIdRef.current,
         description: `Progress: ${uploadProgress}%`,
+        action: {
+          label: "Batalkan",
+          onClick: () => handleCancelUpload(),
+        },
       });
     }
   }, [isSubmitting, uploadProgress, uploadError]);
@@ -381,8 +430,26 @@ export default function UploadClient({
       toast.success("Film berhasil diunggah!");
       router.push(`/movie/${response.data.id}`);
     } catch (error: any) {
-      if (axios.isCancel(error)) {
-        toast.error("Upload dibatalkan");
+      if (
+        axios.isCancel(error) ||
+        error.name === "CanceledError" ||
+        error.code === "ERR_CANCELED"
+      ) {
+        toast.info("Upload dibatalkan");
+      } else if (
+        error.response?.status === 503 ||
+        error.response?.data?.error === "DatabaseUnavailable"
+      ) {
+        if (uploadToastIdRef.current) {
+          toast.dismiss(uploadToastIdRef.current);
+        }
+        toast.error("Database sedang mati atau tidak dapat dijangkau!", {
+          description: "Silakan periksa server database Anda.",
+          duration: 8000,
+        });
+        setUploadError(
+          "Database sedang mati atau tidak dapat dijangkau. Silakan periksa koneksi database.",
+        );
       } else {
         const msg =
           error.response?.data?.message ||
@@ -495,29 +562,53 @@ export default function UploadClient({
                         </Label>
                       </div>
                     </div>
-                    <DialogFooter>
-                      <Button
-                        type="button"
-                        onClick={handleExtract}
-                        disabled={extracting}
-                        className="bg-indigo-600 hover:bg-indigo-500 text-white w-full"
-                      >
-                        {extracting ? "Mengekstrak..." : "Mulai Extract"}
-                      </Button>
+                    <DialogFooter className="flex flex-col sm:flex-row gap-2">
+                      {extracting ? (
+                        <Button
+                          type="button"
+                          variant="destructive"
+                          onClick={handleCancelExtract}
+                          className="bg-rose-600 hover:bg-rose-700 text-white w-full flex items-center justify-center gap-2"
+                        >
+                          <X className="w-4 h-4" /> Batalkan Extract
+                        </Button>
+                      ) : (
+                        <Button
+                          type="button"
+                          onClick={handleExtract}
+                          className="bg-indigo-600 hover:bg-indigo-500 text-white w-full"
+                        >
+                          Mulai Extract
+                        </Button>
+                      )}
                     </DialogFooter>
                   </DialogContent>
                 </Dialog>
 
-                <Button
-                  type="submit"
-                  disabled={isSubmitting}
-                  className="bg-indigo-600 hover:bg-indigo-500 text-white font-semibold px-6 shadow-lg shadow-indigo-600/20"
-                >
-                  <Upload className="w-4 h-4 mr-2" />
-                  {isSubmitting
-                    ? `Mengunggah (${uploadProgress}%)`
-                    : "Upload Film"}
-                </Button>
+                {isSubmitting ? (
+                  <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-900 border border-slate-700 rounded-xl text-xs font-mono text-indigo-300">
+                      <div className="w-2.5 h-2.5 rounded-full bg-indigo-500 animate-ping" />
+                      <span>{uploadProgress}%</span>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="destructive"
+                      onClick={handleCancelUpload}
+                      className="bg-rose-600 hover:bg-rose-700 text-white font-medium px-4 shadow-lg shadow-rose-600/20 flex items-center gap-1.5"
+                    >
+                      <X className="w-4 h-4" /> Batalkan Upload
+                    </Button>
+                  </div>
+                ) : (
+                  <Button
+                    type="submit"
+                    className="bg-indigo-600 hover:bg-indigo-500 text-white font-semibold px-6 shadow-lg shadow-indigo-600/20"
+                  >
+                    <Upload className="w-4 h-4 mr-2" />
+                    Upload Film
+                  </Button>
+                )}
               </div>
             </div>
 

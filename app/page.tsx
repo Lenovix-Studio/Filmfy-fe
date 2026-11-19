@@ -1,13 +1,13 @@
 import HomeClient from "./HomeClient";
 import { BACKEND_URL } from "@/lib/constant";
 import { ApiMovie, Movie } from "@/lib/types";
-import { toast } from "sonner";
 
 export const dynamic = "force-dynamic";
 
 export default async function Home() {
   let initialMovies: Movie[] = [];
   let filterTabs = [{ id: "ALL", label: "All" }];
+  let databaseError: string | null = null;
 
   try {
     const res = await fetch(`${BACKEND_URL}/movies`, {
@@ -32,10 +32,38 @@ export default async function Home() {
           };
         });
       }
+    } else {
+      const errBody = await res.json().catch(() => null);
+      if (res.status === 503 || errBody?.error === "DatabaseUnavailable") {
+        databaseError =
+          errBody?.message ||
+          "Database sedang mati atau tidak dapat dijangkau. Silakan periksa koneksi database server.";
+      }
     }
   } catch (error) {
-    toast.error("Gagal mengambil data film", error || "");
     console.error("Gagal mengambil data film:", error);
+  }
+
+  // Also check database health endpoint if databaseError not already detected
+  if (!databaseError) {
+    try {
+      const healthRes = await fetch(`${BACKEND_URL}/health/db`, {
+        cache: "no-store",
+      });
+      if (!healthRes.ok) {
+        const healthData = await healthRes.json().catch(() => null);
+        if (
+          healthRes.status === 503 ||
+          healthData?.error === "DatabaseUnavailable"
+        ) {
+          databaseError =
+            healthData?.message ||
+            "Database sedang mati atau tidak dapat dijangkau.";
+        }
+      }
+    } catch {
+      // Backend itself might be offline
+    }
   }
 
   try {
@@ -62,11 +90,14 @@ export default async function Home() {
       ];
     }
   } catch (error) {
-    toast.error("Gagal mengambil status filter", error || "");
-    console.error("Gagal mengambil status filter", error);
+    console.error("Gagal mengambil status filter:", error);
   }
 
   return (
-    <HomeClient initialMovies={initialMovies} initialFilterTabs={filterTabs} />
+    <HomeClient
+      initialMovies={initialMovies}
+      initialFilterTabs={filterTabs}
+      databaseError={databaseError}
+    />
   );
 }
